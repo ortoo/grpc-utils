@@ -9,7 +9,9 @@
     "lodash.isobject": "^3.0.2",
     "through2": "^2.0.1"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "eslint": "^2.11.1"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "postversion": "git push && git push --tags"
