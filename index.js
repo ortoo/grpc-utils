@@ -1,6 +1,6 @@
 'use strict';
 
-const BSON = require('BSON');
+const BSON = require('bson');
 const isObject = require('lodash.isobject');
 const through2 = require('through2');
 
