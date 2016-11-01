@@ -7,12 +7,14 @@ const through2 = require('through2');
 const debug = require('debug')('@ortoo/grpc-utils:index');
 
 const client = require('./client');
+const impl = require('./impl');
 
 exports.objSerializeStream = objSerializeStream;
 exports.objDeserializeStream = objDeserializeStream;
 exports.createObjectSerializer = createObjectSerializer;
 exports.createObjectDeserializer = createObjectDeserializer;
 exports.createClient = client;
+exports.createImpl = impl;
 
 const WRAPPER_RE = /\.wrappers\.(arrays|values)\.\w+$/;
 

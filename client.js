@@ -6,8 +6,8 @@ const duplexer2 = require('duplexer2');
 
 module.exports = RPCRetryServiceClientFactory;
 
-function RPCRetryServiceClientFactory(TService) {
-  const RPCBaseServiceClient = RPCBaseServiceClientFactory(TService);
+function RPCRetryServiceClientFactory(TService, transforms) {
+  const RPCBaseServiceClient = RPCBaseServiceClientFactory(TService, transforms);
 
   function RPCRetryServiceClient(addr, creds, opts) {
     RPCBaseServiceClient.call(this, addr, creds);
@@ -20,7 +20,6 @@ function RPCRetryServiceClientFactory(TService) {
 
   RPCRetryServiceClient.prototype = Object.create(RPCBaseServiceClient.prototype);
   RPCRetryServiceClient.prototype.constructor = RPCRetryServiceClient;
-  RPCRetryServiceClient.addTransform = RPCBaseServiceClient.addTransform;
 
   /* eslint-disable no-loop-func */
   for (let child of TService.service.children) {
@@ -54,7 +53,7 @@ function RPCRetryServiceClientFactory(TService) {
   return RPCRetryServiceClient;
 }
 
-function RPCBaseServiceClientFactory(TService) {
+function RPCBaseServiceClientFactory(TService, transforms) {
 
   const requestTransforms = {};
   const responseTransforms = {};
@@ -66,14 +65,6 @@ function RPCBaseServiceClientFactory(TService) {
   RPCBaseServiceClient.prototype = {};
   RPCBaseServiceClient.prototype.constructor = RPCBaseServiceClient;
 
-  // requestTransform1, requestTransform2 -> RPC Client -> responseTransform2 -> responseTransform1
-  RPCBaseServiceClient.addTransform = function (method, {request, response}) {
-    requestTransforms[method] = requestTransforms[method] || [];
-    responseTransforms[method] = responseTransforms[method] || [];
-    requestTransforms[method].push(request);
-    responseTransforms[method].unshift(response);
-  };
-
   /* eslint-disable no-loop-func */
   for (let child of TService.service.children) {
     if (child.className !== 'Service.RPCMethod') {
@@ -82,64 +73,74 @@ function RPCBaseServiceClientFactory(TService) {
 
     let methodName = lowerFirst(child.name);
 
+
+    requestTransforms[methodName] = requestTransforms[methodName] || [];
+    responseTransforms[methodName] = responseTransforms[methodName] || [];
+
+    // requestTransform1 -> requestTransform2 -> RPC client -> responseTransform2 -> responseTransform1
+    for (let {request, response} of transforms) {
+      requestTransforms[methodName].push(request(child.resolvedRequestType));
+      responseTransforms[methodName].unshift(response(child.resolvedResponseType));
+    }
+
     if (child.requestStream && child.responseStream) {
       RPCBaseServiceClient.prototype[methodName] = function (...args) {
         var call = this._grpcClient[methodName](...args);
         var inStream = through2.obj(); // Pass through stream
         var outStream = through2.obj();
+        var origInStream = inStream;
+        var origOutStream = outStream;
 
         getRequestTransforms(methodName).forEach(function (transform) {
           if (transform) {
             var transformStream = createTransformStream(transform);
-            var origStream = inStream;
             // Pass the errors through 2
-            transformStream.on('error', function(err) {
-              origStream.emit('error', err);
+            inStream.on('error', function(err) {
+              transformStream.emit('error', err);
             });
 
-            inStream = transformStream.pipe(origStream);
+            inStream = inStream.pipe(transformStream);
           }
         });
 
         getResponseTransforms(methodName).forEach(function (transform) {
           if (transform) {
             var transformStream = createTransformStream(transform);
-            var origStream = outStream;
-            origStream.on('error', function(err) {
+            outStream.on('error', function(err) {
               transformStream.emit('error', err);
             });
-            outStream = origStream.pipe(transformStream);
+            outStream = outStream.pipe(transformStream);
           }
         });
 
         // Map inStream errors to outStream
         inStream.on('error', function(err) {
-          outStream.emit('error', err);
+          origOutStream.emit('error', err);
         });
 
         inStream.pipe(call);
-        call.pipe(outStream);
+        call.pipe(origOutStream);
 
         call.on('error', function(err) {
-          outStream.emit('error', err);
+          origOutStream.emit('error', err);
         });
 
-        return duplexer2(inStream, outStream);
+        return duplexer2(origInStream, outStream);
       };
     } else if (child.requestStream) {
       RPCBaseServiceClient.prototype[methodName] = function (...args) {
         var inStream = through2.obj();
+        var origInStream = inStream;
 
         getRequestTransforms(methodName).forEach(function (transform) {
           if (transform) {
             var transformStream = createTransformStream(transform);
-            var origStream = inStream;
             // Pass the errors through 2
-            transformStream.on('error', function(err) {
-              origStream.emit('error', err);
+            inStream.on('error', function(err) {
+              transformStream.emit('error', err);
             });
 
-            inStream = transformStream.pipe(origStream);
+            inStream = inStream.pipe(transformStream);
           }
         });
 
@@ -162,10 +163,10 @@ function RPCBaseServiceClientFactory(TService) {
 
         // Make instream thenable
         ['then', 'catch', 'finally'].forEach(function (field) {
-          inStream[field] = resultProm[field].bind(resultProm);
+          origInStream[field] = resultProm[field].bind(resultProm);
         });
 
-        return inStream;
+        return origInStream;
       };
     } else if (child.responseStream) {
       RPCBaseServiceClient.prototype[methodName] = function (data, ...args) {
@@ -178,21 +179,20 @@ function RPCBaseServiceClientFactory(TService) {
         var call = this._grpcClient[methodName](data, ...args);
         var outStream = through2.obj();
 
-        getResponseTransforms(methodName).forEach(function (transform) {
-          if (transform) {
-            var transformStream = createTransformStream(transform);
-            var origStream = outStream;
-            origStream.on('error', function(err) {
-              transformStream.emit('error', err);
-            });
-            outStream = origStream.pipe(transformStream);
-          }
-        });
-
         call.pipe(outStream);
 
         call.on('error', function(err) {
           outStream.emit('error', err);
+        });
+
+        getResponseTransforms(methodName).forEach(function (transform) {
+          if (transform) {
+            var transformStream = createTransformStream(transform);
+            outStream.on('error', function(err) {
+              transformStream.emit('error', err);
+            });
+            outStream = outStream.pipe(transformStream);
+          }
         });
 
         return outStream;
