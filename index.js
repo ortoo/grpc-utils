@@ -1,15 +1,20 @@
 'use strict';
 
-const BSON = require('bson');
+const ObjectId = require('bson-objectid');
 const isObject = require('lodash.isobject');
+const isUndefined = require('lodash.isundefined');
 const through2 = require('through2');
+const debug = require('debug')('@ortoo/grpc-utils:index');
 
-const ObjectId = BSON.ObjectId;
+const client = require('./client');
 
 exports.objSerializeStream = objSerializeStream;
 exports.objDeserializeStream = objDeserializeStream;
 exports.createObjectSerializer = createObjectSerializer;
 exports.createObjectDeserializer = createObjectDeserializer;
+exports.createClient = client;
+
+const WRAPPER_RE = /\.wrappers\.(arrays|values)\.\w+$/;
 
 function objSerializeStream(serializer) {
   return through2.obj(function(obj, enc, callback) {
@@ -17,13 +22,24 @@ function objSerializeStream(serializer) {
   });
 }
 
-function createObjectSerializer(TObj) {
+function objDeserializeStream(deserializer) {
+  return through2.obj(function(obj, enc, callback) {
+    callback(null, deserializer(obj));
+  });
+}
 
-  var {timestampPaths, objectIdPaths, jsonPaths} = generateConversionPaths(TObj);
+function createObjectSerializer(TObj, removeNonExisting) {
+
+  var {timestampPaths,
+       objectIdPaths,
+       jsonPaths,
+       wrapperPaths,
+       allPaths} = generateConversionPaths(TObj);
 
   return serializeObject;
 
   function serializeObject(obj, prefix) {
+    debug('serializing', obj, prefix);
 
     prefix = prefix || '';
 
@@ -36,31 +52,55 @@ function createObjectSerializer(TObj) {
     } else {
       outObj = {};
     }
+
     for (let key in obj) {
-      let val = obj[key];
-      let res = val;
+      if (Object.hasOwnProperty.call(obj, key)) {
+        let val = obj[key];
+        let res = val;
 
-      // Ignore __ or null paths
-      if (key.startsWith('__') || val === null) {
-        continue;
+        let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
+
+        if (Array.isArray(val) && !jsonPaths.has(path)) {
+          path += '[]';
+        }
+
+        // Ignore anything thats not in a given path
+        if (removeNonExisting && !allPaths.has(path)) {
+          debug('Ignoring', path, allPaths);
+          continue;
+        }
+
+        // Ignore null paths
+        if (key.startsWith('__') || key.startsWith('$') || val === null) {
+          continue;
+        }
+
+        debug('Processing path', path);
+
+        try {
+          // Is the key in our timestamp paths
+          if (jsonPaths.has(path)) {
+            res = convertToJSONObject(val);
+          } else if (Array.isArray(val)) {
+            res = serializeObject(val, `${path}.`);
+          } else if (timestampPaths.has(path)) {
+            res = convertDateToTimestamp(val);
+          } else if (objectIdPaths.has(path)) {
+            res = convertFromObjectId(val);
+          } else if (wrapperPaths.has(path)) {
+            res = convertToWrapper(val);
+          } else if (isObject(val)) {
+            res = serializeObject(val, `${path}.`);
+          }
+        } catch (err) {
+          debug('Error converting path', path, val);
+          throw err;
+        }
+
+        if (!isUndefined(res)) {
+          outObj[key] = res;
+        }
       }
-
-      let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
-
-      // Is the key in our timestamp paths
-      if (timestampPaths.has(path)) {
-        res = convertDateToTimestamp(val);
-      } else if (objectIdPaths.has(path)) {
-        res = convertFromObjectId(val);
-      } else if (jsonPaths.has(path)) {
-        res = convertToJSONObject(val);
-      } else if (Array.isArray(val)) {
-        res = serializeObject(val, `${prefix}${key}[].`);
-      } else if (isObject(val)) {
-        res = serializeObject(val, `${path}.`);
-      }
-
-      outObj[key] = res;
     }
 
     return outObj;
@@ -70,11 +110,16 @@ function createObjectSerializer(TObj) {
 
 function createObjectDeserializer(TObj) {
 
-  var {timestampPaths, objectIdPaths, jsonPaths} = generateConversionPaths(TObj);
+  var {timestampPaths,
+       objectIdPaths,
+       wrapperPaths,
+       messagePaths,
+       jsonPaths} = generateConversionPaths(TObj);
 
   return deserializeObject;
 
   function deserializeObject(obj, prefix) {
+    debug('deserializing', obj, prefix);
 
     prefix = prefix || '';
 
@@ -89,25 +134,39 @@ function createObjectDeserializer(TObj) {
     }
 
     for (let key in obj) {
-      let val = obj[key];
-      let res = val;
+      if (Object.hasOwnProperty.call(obj, key)) {
+        let val = obj[key];
+        let res = val;
 
-      let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
+        let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
 
-      // Is the key in our timestamp paths
-      if (timestampPaths.has(path)) {
-        res = convertTimestampToDate(val);
-      } else if (objectIdPaths.has(path)) {
-        res = convertToObjectId(val);
-      } else if (jsonPaths.has(path)) {
-        res = convertFromJSONObject(val);
-      } else if (Array.isArray(val)) {
-        res = deserializeObject(val, `${prefix}${key}[].`);
-      } else if (isObject(val)) {
-        res = deserializeObject(val, `${path}.`);
+        if (Array.isArray(val)) {
+          path += '[]';
+        }
+
+        debug('Processing path', path);
+
+        // Is the key in our timestamp paths
+        if (jsonPaths.has(path)) {
+          res = convertFromJSONObject(val);
+        } else if (Array.isArray(val)) {
+          res = deserializeObject(val, `${path}.`);
+        } else if (timestampPaths.has(path)) {
+          res = convertTimestampToDate(val);
+        } else if (objectIdPaths.has(path)) {
+          res = convertToObjectId(val);
+        } else if (wrapperPaths.has(path)) {
+          res = convertFromWrapper(val);
+        } else if (isObject(val)) {
+          res = deserializeObject(val, `${path}.`);
+        } else if (val === null && messagePaths.has(path)) {
+          res = undefined;
+        }
+
+        if (!isUndefined(res)) {
+          outObj[key] = res;
+        }
       }
-
-      outObj[key] = res;
     }
 
     return outObj;
@@ -121,13 +180,14 @@ function generateConversionPaths(TMessage, opts, prefix) {
     opts = {
       objectIdPaths: new Set(),
       timestampPaths: new Set(),
-      jsonPaths: new Set()
+      jsonPaths: new Set(),
+      allPaths: new Set(),
+      wrapperPaths: new Set(),
+      messagePaths: new Set()
     };
   }
 
-  var objectIdPaths = opts.objectIdPaths;
-  var timestampPaths = opts.timestampPaths;
-  var jsonPaths = opts.jsonPaths;
+  var {objectIdPaths, timestampPaths, jsonPaths, allPaths, wrapperPaths, messagePaths} = opts;
 
   for (let field of TMessage.children) {
 
@@ -137,28 +197,37 @@ function generateConversionPaths(TMessage, opts, prefix) {
 
     var suffix = field.repeated ? '[]' : '';
 
-    if (field.options.hasOwnProperty('(objectId)')) {
-      objectIdPaths.add(prefix + field.name + suffix);
-    } else if (field.type.name === 'message' && field.resolvedType.fqn() === '.ortoo.JSONObject') {
-      jsonPaths.add(prefix + field.name + suffix);
-    } else if (field.type.name === 'message' && field.resolvedType.fqn() === '.google.protobuf.Timestamp') {
-      timestampPaths.add(prefix + field.name + suffix);
-    } else if (field.type.name === 'message') {
-      generateConversionPaths(field.resolvedType, opts, prefix + field.name + suffix + '.');
+    var pathrep = prefix + field.name + suffix;
+    allPaths.add(pathrep);
+
+    if (field.type.name === 'message') {
+      messagePaths.add(pathrep);
+      var fqn = field.resolvedType.fqn();
+      if (fqn === '.ortoo.ObjectId') {
+        objectIdPaths.add(pathrep);
+      } else if (fqn === '.ortoo.JSONObject') {
+        jsonPaths.add(pathrep);
+      } else if (fqn === '.google.protobuf.Timestamp') {
+        timestampPaths.add(pathrep);
+      } else if (WRAPPER_RE.test(fqn)){
+        wrapperPaths.add(pathrep);
+      } else {
+        generateConversionPaths(field.resolvedType, opts, pathrep + '.');
+      }
     }
   }
 
   return opts;
 }
 
-function convertToObjectId(val) {
-  return val ? new ObjectId(val) : null;
+function convertToObjectId(msg) {
+  return (msg && msg.value && msg.value.length) ? new ObjectId(msg.value) : undefined;
 }
 
 function convertTimestampToDate(val) {
 
   if (!val) {
-    return null;
+    return;
   }
 
   var millis = val.seconds * 1000 + Math.round(val.nanos / 1e6);
@@ -166,14 +235,19 @@ function convertTimestampToDate(val) {
 }
 
 function convertDateToTimestamp(val) {
-  return {
-    seconds: Math.floor(val.getTime() / 1000),
-    nanos: val.getUTCMilliseconds() * 1e6
-  };
+  if (val) {
+    return {
+      seconds: Math.floor(val.getTime() / 1000),
+      nanos: val.getUTCMilliseconds() * 1e6
+    };
+  }
 }
 
 function convertFromObjectId(val) {
-  return String(val);
+  if (val) {
+    var strRep = val.toString ? val.toString() : String(val);
+    return {value: new Buffer(strRep, 'hex')};
+  }
 }
 
 function convertToJSONObject(obj) {
@@ -188,11 +262,16 @@ function convertFromJSONObject(obj) {
   } catch (err) {
     // ignore
   }
-
 }
 
-function objDeserializeStream(deserializer) {
-  return through2.obj(function(obj, enc, callback) {
-    callback(null, deserializer(obj));
-  });
+function convertToWrapper(val) {
+  if (!isUndefined(val)) {
+    return {value: val};
+  }
+}
+
+function convertFromWrapper(obj) {
+  if (obj) {
+    return obj.value;
+  }
 }
