@@ -1,3 +1,4 @@
+const Promise = require('bluebird');
 const duplexer2 = require('duplexer2');
 const lowerFirst = require('lodash.lowerfirst');
 const through2 = require('through2');
@@ -102,7 +103,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
           }
         });
 
-        var prom = impl[methodName](inStream, call);
+        var prom = Promise.resolve(impl[methodName](inStream, call));
 
         prom.then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
@@ -157,7 +158,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
           }
         });
 
-        impl[methodName](data, call).then(function (result) {
+        Promise.resolve(impl[methodName](data, call)).then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
             if (transform) {
               result = transform(result);
