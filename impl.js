@@ -103,7 +103,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
           }
         });
 
-        var prom = Promise.resolve(impl[methodName](inStream, call));
+        var prom = Promise.try(impl[methodName].bind(impl, inStream, call));
 
         prom.then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
@@ -158,7 +158,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
           }
         });
 
-        Promise.resolve(impl[methodName](data, call)).then(function (result) {
+        Promise.try(impl[methodName].bind(impl, data, call)).then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
             if (transform) {
               result = transform(result);
