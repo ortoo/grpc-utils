@@ -9,14 +9,14 @@
     "bson-objectid": "^1.1.4",
     "debug": "^2.2.0",
     "duplexer2": "^0.1.4",
-    "lodash.isdate": "^3.0.3",
+    "lodash.isdate": "^4.0.1",
     "lodash.isobject": "^3.0.2",
     "lodash.isundefined": "^3.0.1",
     "lodash.lowerfirst": "^4.3.1",
     "through2": "^2.0.1"
   },
   "devDependencies": {
-    "eslint": "^2.11.1"
+    "eslint": "^3.11.1"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
