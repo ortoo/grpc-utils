@@ -62,7 +62,7 @@ function createObjectSerializer(TObj, removeNonExisting) {
 
         let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
 
-        if (Array.isArray(val) && !jsonPaths.has(path)) {
+        if (Array.isArray(val) && !jsonPaths.has(path) && !wrapperPaths.has(path)) {
           path += '[]';
         }
 
@@ -83,14 +83,14 @@ function createObjectSerializer(TObj, removeNonExisting) {
           // Is the key in our timestamp paths
           if (jsonPaths.has(path)) {
             res = convertToJSONObject(val);
+          } else if (wrapperPaths.has(path)) {
+            res = convertToWrapper(val);
           } else if (Array.isArray(val)) {
             res = serializeObject(val, `${path}.`);
           } else if (timestampPaths.has(path)) {
             res = convertDateToTimestamp(val);
           } else if (objectIdPaths.has(path)) {
             res = convertFromObjectId(val);
-          } else if (wrapperPaths.has(path)) {
-            res = convertToWrapper(val);
           } else if (isObject(val)) {
             res = serializeObject(val, `${path}.`);
           }
