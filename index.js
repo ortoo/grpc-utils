@@ -51,8 +51,10 @@ function createObjectSerializer(TObj, removeNonExisting) {
     if (Array.isArray(obj)) {
       outObj = [];
       isArray = true;
-    } else {
+    } else if (isObject(obj)) {
       outObj = {};
+    } else {
+      return obj; // A primitive. Just return it
     }
 
     for (let key in obj) {
@@ -84,7 +86,15 @@ function createObjectSerializer(TObj, removeNonExisting) {
           if (jsonPaths.has(path)) {
             res = convertToJSONObject(val);
           } else if (wrapperPaths.has(path)) {
-            res = convertToWrapper(val);
+            var subval;
+            if (Array.isArray(val)) {
+              subval = serializeObject(val, `${path}[].`);
+            } else if (isObject(val)) {
+              subval = serializeObject(val, `${path}.`);
+            } else {
+              subval = val;
+            }
+            res = convertToWrapper(subval);
           } else if (Array.isArray(val)) {
             res = serializeObject(val, `${path}.`);
           } else if (timestampPaths.has(path)) {
@@ -158,7 +168,14 @@ function createObjectDeserializer(TObj) {
         } else if (objectIdPaths.has(path)) {
           res = convertToObjectId(val);
         } else if (wrapperPaths.has(path)) {
-          res = convertFromWrapper(val);
+          var unwrapped = convertFromWrapper(val);
+          if (Array.isArray(unwrapped)) {
+            res = deserializeObject(unwrapped, `${path}[].`);
+          } else if (isObject(unwrapped)) {
+            res = deserializeObject(unwrapped, `${path}.`);
+          } else {
+            res = unwrapped;
+          }
         } else if (isObject(val)) {
           res = deserializeObject(val, `${path}.`);
         } else if (val === null && messagePaths.has(path)) {
@@ -213,6 +230,14 @@ function generateConversionPaths(TMessage, opts, prefix) {
         timestampPaths.add(pathrep);
       } else if (WRAPPER_RE.test(fqn)){
         wrapperPaths.add(pathrep);
+        var valField = field.resolvedType.getChild('value');
+        if (valField.repeated) {
+          pathrep = pathrep + '[]';
+        }
+
+        if (valField.type.name === 'message') {
+          generateConversionPaths(valField.resolvedType, opts, pathrep + '.');
+        }
       } else {
         generateConversionPaths(field.resolvedType, opts, pathrep + '.');
       }
