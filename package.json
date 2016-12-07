@@ -9,8 +9,8 @@
     "bson-objectid": "^1.1.4",
     "debug": "^2.2.0",
     "duplexer2": "^0.1.4",
-    "lodash.isdate": "^3.0.3",
     "lodash.isobject": "^3.0.2",
+    "lodash.isstring": "^4.0.1",
     "lodash.isundefined": "^3.0.1",
     "lodash.lowerfirst": "^4.3.1",
     "through2": "^2.0.1"

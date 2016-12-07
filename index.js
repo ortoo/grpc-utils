@@ -3,6 +3,7 @@
 const ObjectId = require('bson-objectid');
 const isObject = require('lodash.isobject');
 const isUndefined = require('lodash.isundefined');
+const isString = require('lodash.isstring');
 const through2 = require('through2');
 const debug = require('debug')('@ortoo/grpc-utils:index');
 
@@ -255,6 +256,11 @@ function convertTimestampToDate(val) {
 
 function convertDateToTimestamp(val) {
   if (val) {
+
+    if (isString(val)) {
+      val = new Date(val);
+    }
+
     return {
       seconds: Math.floor(val.getTime() / 1000),
       nanos: val.getUTCMilliseconds() * 1e6
