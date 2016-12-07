@@ -57,61 +57,51 @@ function createObjectSerializer(TObj, removeNonExisting) {
       return obj; // A primitive. Just return it
     }
 
-    for (let key in obj) {
-      if (Object.hasOwnProperty.call(obj, key)) {
-        let val = obj[key];
-        let res = val;
+    for (let key of Object.keys(obj)) {
+      let val = obj[key];
+      let res = val;
 
-        let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
+      let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
 
-        if (Array.isArray(val) && !jsonPaths.has(path) && !wrapperPaths.has(path)) {
-          path += '[]';
+      let isWrapper = wrapperPaths.has(path);
+
+      if (Array.isArray(val) && !jsonPaths.has(path)) {
+        path += '[]';
+      }
+
+      // Ignore anything thats not in a given path
+      if (removeNonExisting && !allPaths.has(path)) {
+        debug('Ignoring', path, allPaths);
+        continue;
+      }
+
+      // Ignore null paths
+      if (key.startsWith('__') || key.startsWith('$') || val === null) {
+        continue;
+      }
+
+      debug('Processing path', path);
+
+      try {
+        // Is the key in our timestamp paths
+        if (jsonPaths.has(path)) {
+          res = convertToJSONObject(val);
+        } else if (Array.isArray(val)) {
+          res = serializeObject(val, `${path}.`);
+        } else if (timestampPaths.has(path)) {
+          res = convertDateToTimestamp(val);
+        } else if (objectIdPaths.has(path)) {
+          res = convertFromObjectId(val);
+        } else if (isObject(val)) {
+          res = serializeObject(val, `${path}.`);
         }
+      } catch (err) {
+        debug('Error converting path', path, val);
+        throw err;
+      }
 
-        // Ignore anything thats not in a given path
-        if (removeNonExisting && !allPaths.has(path)) {
-          debug('Ignoring', path, allPaths);
-          continue;
-        }
-
-        // Ignore null paths
-        if (key.startsWith('__') || key.startsWith('$') || val === null) {
-          continue;
-        }
-
-        debug('Processing path', path);
-
-        try {
-          // Is the key in our timestamp paths
-          if (jsonPaths.has(path)) {
-            res = convertToJSONObject(val);
-          } else if (wrapperPaths.has(path)) {
-            var subval;
-            if (Array.isArray(val)) {
-              subval = serializeObject(val, `${path}[].`);
-            } else if (isObject(val)) {
-              subval = serializeObject(val, `${path}.`);
-            } else {
-              subval = val;
-            }
-            res = convertToWrapper(subval);
-          } else if (Array.isArray(val)) {
-            res = serializeObject(val, `${path}.`);
-          } else if (timestampPaths.has(path)) {
-            res = convertDateToTimestamp(val);
-          } else if (objectIdPaths.has(path)) {
-            res = convertFromObjectId(val);
-          } else if (isObject(val)) {
-            res = serializeObject(val, `${path}.`);
-          }
-        } catch (err) {
-          debug('Error converting path', path, val);
-          throw err;
-        }
-
-        if (!isUndefined(res)) {
-          outObj[key] = res;
-        }
+      if (!isUndefined(res)) {
+        outObj[key] = isWrapper ? convertToWrapper(res) : res;
       }
     }
 
@@ -145,46 +135,39 @@ function createObjectDeserializer(TObj) {
       outObj = {};
     }
 
-    for (let key in obj) {
-      if (Object.hasOwnProperty.call(obj, key)) {
-        let val = obj[key];
-        let res = val;
+    for (let key of Object.keys(obj)) {
+      let val = obj[key];
+      let res = val;
 
-        let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
+      let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
 
-        if (Array.isArray(val)) {
-          path += '[]';
-        }
+      if (wrapperPaths.has(path)) {
+        val = convertFromWrapper(val);
+      }
 
-        debug('Processing path', path);
+      if (Array.isArray(val)) {
+        path += '[]';
+      }
 
-        // Is the key in our timestamp paths
-        if (jsonPaths.has(path)) {
-          res = convertFromJSONObject(val);
-        } else if (Array.isArray(val)) {
-          res = deserializeObject(val, `${path}.`);
-        } else if (timestampPaths.has(path)) {
-          res = convertTimestampToDate(val);
-        } else if (objectIdPaths.has(path)) {
-          res = convertToObjectId(val);
-        } else if (wrapperPaths.has(path)) {
-          var unwrapped = convertFromWrapper(val);
-          if (Array.isArray(unwrapped)) {
-            res = deserializeObject(unwrapped, `${path}[].`);
-          } else if (isObject(unwrapped)) {
-            res = deserializeObject(unwrapped, `${path}.`);
-          } else {
-            res = unwrapped;
-          }
-        } else if (isObject(val)) {
-          res = deserializeObject(val, `${path}.`);
-        } else if (val === null && messagePaths.has(path)) {
-          res = undefined;
-        }
+      debug('Processing path', path);
 
-        if (!isUndefined(res)) {
-          outObj[key] = res;
-        }
+      // Is the key in our timestamp paths
+      if (jsonPaths.has(path)) {
+        res = convertFromJSONObject(val);
+      } else if (Array.isArray(val)) {
+        res = deserializeObject(val, `${path}.`);
+      } else if (timestampPaths.has(path)) {
+        res = convertTimestampToDate(val);
+      } else if (objectIdPaths.has(path)) {
+        res = convertToObjectId(val);
+      } else if (isObject(val)) {
+        res = deserializeObject(val, `${path}.`);
+      } else if (val === null && messagePaths.has(path)) {
+        res = undefined;
+      }
+
+      if (!isUndefined(res)) {
+        outObj[key] = res;
       }
     }
 
@@ -214,13 +197,23 @@ function generateConversionPaths(TMessage, opts, prefix) {
       continue;
     }
 
+    var pathrep = prefix + field.name;
+
+    // First check if we are a wrapper path. If so mark it and resolve down
+    if (field.type.name === 'message' && WRAPPER_RE.test(field.resolvedType.fqn())) {
+      wrapperPaths.add(pathrep);
+
+      field = field.resolvedType.getChild('value');
+    }
+
     var suffix = field.repeated ? '[]' : '';
 
-    var pathrep = prefix + field.name + suffix;
+    pathrep = pathrep + suffix;
     allPaths.add(pathrep);
 
     if (field.type.name === 'message') {
       messagePaths.add(pathrep);
+
       var fqn = field.resolvedType.fqn();
       if (fqn === '.ortoo.ObjectId') {
         objectIdPaths.add(pathrep);
@@ -228,16 +221,6 @@ function generateConversionPaths(TMessage, opts, prefix) {
         jsonPaths.add(pathrep);
       } else if (fqn === '.google.protobuf.Timestamp') {
         timestampPaths.add(pathrep);
-      } else if (WRAPPER_RE.test(fqn)){
-        wrapperPaths.add(pathrep);
-        var valField = field.resolvedType.getChild('value');
-        if (valField.repeated) {
-          pathrep = pathrep + '[]';
-        }
-
-        if (valField.type.name === 'message') {
-          generateConversionPaths(valField.resolvedType, opts, pathrep + '.');
-        }
       } else {
         generateConversionPaths(field.resolvedType, opts, pathrep + '.');
       }
