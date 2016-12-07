@@ -41,10 +41,11 @@ function createObjectSerializer(TObj, removeNonExisting) {
   return serializeObject;
 
   function serializeObject(obj, prefix) {
-    debug('serializing', obj, prefix);
+    if (!prefix) {
+      debug('serializing', obj);
+    }
 
     prefix = prefix || '';
-
 
     var outObj;
     var isArray = false;
@@ -105,6 +106,9 @@ function createObjectSerializer(TObj, removeNonExisting) {
       }
     }
 
+    if (!prefix) {
+      debug('Serialized', outObj);
+    }
     return outObj;
   }
 
@@ -121,10 +125,11 @@ function createObjectDeserializer(TObj) {
   return deserializeObject;
 
   function deserializeObject(obj, prefix) {
-    debug('deserializing', obj, prefix);
+    if (!prefix) {
+      debug('deserializing', obj);
+    }
 
     prefix = prefix || '';
-
 
     var outObj;
     var isArray = false;
@@ -137,8 +142,6 @@ function createObjectDeserializer(TObj) {
 
     for (let key of Object.keys(obj)) {
       let val = obj[key];
-      let res = val;
-
       let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
 
       if (wrapperPaths.has(path)) {
@@ -148,6 +151,8 @@ function createObjectDeserializer(TObj) {
       if (Array.isArray(val)) {
         path += '[]';
       }
+
+      let res = val;
 
       debug('Processing path', path);
 
@@ -169,6 +174,10 @@ function createObjectDeserializer(TObj) {
       if (!isUndefined(res)) {
         outObj[key] = res;
       }
+    }
+
+    if (!prefix) {
+      debug('Deserialized', outObj);
     }
 
     return outObj;
