@@ -1,3 +1,5 @@
+const EventEmitter = require('events');
+
 const Promise = require('bluebird');
 const duplexer2 = require('duplexer2');
 const lowerFirst = require('lodash.lowerfirst');
@@ -9,7 +11,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
   const requestTransforms = {};
   const responseTransforms = {};
 
-  var wrappedImpl = {};
+  var wrappedImpl = new EventEmitter();
 
   for (let child of TService.service.children) {
     if (child.className !== 'Service.RPCMethod') {
@@ -68,6 +70,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
         // Map inStream errors to outStream
         outStream.on('error', function (err) {
+          wrappedImpl.emit('callError', err, call);
           call.emit('error', err);
         });
 
@@ -114,6 +117,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
           callback(null, result);
         }).catch(function (err) {
+          wrappedImpl.emit('callError', err, call);
           callback(err);
         });
       };
@@ -134,6 +138,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
         outStream.pipe(call);
         outStream.on('error', function (err) {
+          wrappedImpl.emit('callError', err, call);
           call.emit('error', err);
         });
 
@@ -150,24 +155,26 @@ function RPCServiceImplementation(TService, impl, transforms) {
     } else {
       // No streams
       wrappedImpl[methodName] = function (call, callback) {
+        // Generate a new context
+        var context = {};
         var data = call.request;
 
         getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
-            data = transform(data);
+            data = transform.call(context, data);
           }
         });
 
-        Promise.try(impl[methodName].bind(impl, data, call)).then(function (result) {
+        Promise.try(impl[methodName].bind(context, data, call)).then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
             if (transform) {
-              result = transform(result);
+              result = transform.call(context, result);
             }
           });
 
           callback(null, result);
         }).catch(function (err) {
-          console.error(err);
+          wrappedImpl.emit('callError', err, call);
           callback(err);
         });
       };
