@@ -70,7 +70,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
         // Map inStream errors to outStream
         outStream.on('error', function (err) {
-          wrappedImpl.emit('callError', err, call);
+          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
           call.emit('error', err);
         });
 
@@ -117,7 +117,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
           callback(null, result);
         }).catch(function (err) {
-          wrappedImpl.emit('callError', err, call);
+          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
           callback(err);
         });
       };
@@ -138,7 +138,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
         outStream.pipe(call);
         outStream.on('error', function (err) {
-          wrappedImpl.emit('callError', err, call);
+          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
           call.emit('error', err);
         });
 
@@ -174,7 +174,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
           callback(null, result);
         }).catch(function (err) {
-          wrappedImpl.emit('callError', err, call);
+          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
           callback(err);
         });
       };
