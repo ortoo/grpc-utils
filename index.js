@@ -37,6 +37,7 @@ function createObjectSerializer(TObj, removeNonExisting) {
        objectIdPaths,
        jsonPaths,
        wrapperPaths,
+       enumPaths,
        allPaths} = generateConversionPaths(TObj);
 
   return serializeObject;
@@ -94,6 +95,8 @@ function createObjectSerializer(TObj, removeNonExisting) {
           res = convertDateToTimestamp(val);
         } else if (objectIdPaths.has(path)) {
           res = convertFromObjectId(val);
+        } else if (enumPaths.has(path)) {
+          res = convertStringToEnum(val, path);
         } else if (isObject(val)) {
           res = serializeObject(val, `${path}.`);
         }
@@ -113,6 +116,22 @@ function createObjectSerializer(TObj, removeNonExisting) {
     return outObj;
   }
 
+  function convertStringToEnum(val, path) {
+
+    if (!isString(val)) {
+      return val;
+    }
+
+    var TEnum = enumPaths.get(path);
+    var child = TEnum.children.find(child => child.name === val);
+
+    if (!child) {
+      throw new Error(`Not a valid enum value: ${val}`);
+    }
+
+    return child.id;
+  }
+
 }
 
 function createObjectDeserializer(TObj) {
@@ -121,6 +140,7 @@ function createObjectDeserializer(TObj) {
        objectIdPaths,
        wrapperPaths,
        messagePaths,
+       enumPaths,
        jsonPaths} = generateConversionPaths(TObj);
 
   return deserializeObject;
@@ -166,6 +186,8 @@ function createObjectDeserializer(TObj) {
         res = convertTimestampToDate(val);
       } else if (objectIdPaths.has(path)) {
         res = convertToObjectId(val);
+      } else if (enumPaths.has(path)) {
+        res = convertEnumToString(val, path);
       } else if (isObject(val)) {
         res = deserializeObject(val, `${path}.`);
       } else if (val === null && messagePaths.has(path)) {
@@ -183,6 +205,21 @@ function createObjectDeserializer(TObj) {
 
     return outObj;
   }
+
+  function convertEnumToString(val, path) {
+    if (isString(val)) {
+      return val;
+    }
+
+    var TEnum = enumPaths.get(path);
+    var child = TEnum.children.find(child => child.id === val);
+
+    if (!child) {
+      throw new Error(`Not a valid enum value: ${val}`);
+    }
+
+    return child.name;
+  }
 }
 
 function generateConversionPaths(TMessage, opts, prefix) {
@@ -195,11 +232,12 @@ function generateConversionPaths(TMessage, opts, prefix) {
       jsonPaths: new Set(),
       allPaths: new Set(),
       wrapperPaths: new Set(),
-      messagePaths: new Set()
+      messagePaths: new Set(),
+      enumPaths: new Map()
     };
   }
 
-  var {objectIdPaths, timestampPaths, jsonPaths, allPaths, wrapperPaths, messagePaths} = opts;
+  var {objectIdPaths, timestampPaths, jsonPaths, allPaths, wrapperPaths, messagePaths, enumPaths} = opts;
 
   for (let field of TMessage.children) {
 
@@ -234,6 +272,8 @@ function generateConversionPaths(TMessage, opts, prefix) {
       } else {
         generateConversionPaths(field.resolvedType, opts, pathrep + '.');
       }
+    } else if (field.type.name === 'enum') {
+      enumPaths.set(pathrep, field.resolvedType);
     }
   }
 
