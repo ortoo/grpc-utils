@@ -69,10 +69,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
         });
 
         // Map inStream errors to outStream
-        outStream.on('error', function (err) {
-          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
-          call.emit('error', err);
-        });
+        outStream.on('error', handleErr);
 
         inStream.on('error', function (err) {
           origOutStream.emit('error', err);
@@ -81,7 +78,18 @@ function RPCServiceImplementation(TService, impl, transforms) {
         outStream.pipe(call);
 
         var duplex = duplexer2(origOutStream, inStream);
-        impl[methodName](duplex, call);
+
+        try {
+          impl[methodName](duplex, call);
+        } catch (err) {
+          handleErr(err);
+        }
+
+        function handleErr(err) {
+          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
+          call.emit('error', err);
+        }
+
       };
     } else if (child.requestStream) {
       wrappedImpl[methodName] = function (call, callback) {
@@ -137,10 +145,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
         });
 
         outStream.pipe(call);
-        outStream.on('error', function (err) {
-          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
-          call.emit('error', err);
-        });
+        outStream.on('error', handleErr);
 
         var data = call.request;
 
@@ -150,7 +155,16 @@ function RPCServiceImplementation(TService, impl, transforms) {
           }
         });
 
-        impl[methodName](origOutStream, data, call);
+        try {
+          impl[methodName](origOutStream, data, call);
+        } catch (err) {
+          handleErr(err);
+        }
+
+        function handleErr(err) {
+          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
+          call.emit('error', err);
+        }
       };
     } else {
       // No streams
