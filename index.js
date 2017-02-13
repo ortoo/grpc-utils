@@ -331,12 +331,12 @@ function convertFromJSONObject(obj) {
 
 function convertToWrapper(val) {
   if (!isUndefined(val)) {
-    return {value: val};
+    return {value: val, isNull: val === null};
   }
 }
 
 function convertFromWrapper(obj) {
   if (obj) {
-    return obj.value;
+    return obj.isNull ? null : obj.value;
   }
 }
