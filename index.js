@@ -78,11 +78,6 @@ function createObjectSerializer(TObj, removeNonExisting) {
         continue;
       }
 
-      // Ignore null paths
-      if (key.startsWith('__') || key.startsWith('$') || val === null) {
-        continue;
-      }
-
       debug('Processing path', path);
 
       try {
@@ -165,7 +160,13 @@ function createObjectDeserializer(TObj) {
       let val = obj[key];
       let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
 
-      if (wrapperPaths.has(path)) {
+      // If an object was not defined it will come down the wire as _null_. This is a bit
+      // annoying because it makes handling actually null values a pain. So we only support
+      // null values in wrappers where the isNull field gets set if the value is null.
+      // We can then have undefined/null/value for these wrappers which matches our DB for example
+      if (val === null && messagePaths.has(path)) {
+        val = undefined;
+      } else if (wrapperPaths.has(path)) {
         val = convertFromWrapper(val);
       }
 
@@ -190,8 +191,6 @@ function createObjectDeserializer(TObj) {
         res = convertEnumToString(val, path);
       } else if (isObject(val)) {
         res = deserializeObject(val, `${path}.`);
-      } else if (val === null && messagePaths.has(path)) {
-        res = undefined;
       }
 
       if (!isUndefined(res)) {
@@ -330,8 +329,10 @@ function convertFromJSONObject(obj) {
 }
 
 function convertToWrapper(val) {
-  if (!isUndefined(val)) {
-    return {value: val, isNull: val === null};
+  if (val === null) {
+    return {isNull: true};
+  } else if (!isUndefined(val)) {
+    return {value: val};
   }
 }
 
