@@ -280,13 +280,17 @@ function generateConversionPaths(TMessage, opts, prefix) {
 }
 
 function convertToObjectId(msg) {
-  return (msg && msg.value && msg.value.length) ? new ObjectId(msg.value) : undefined;
+  if (!msg) {
+    return msg;
+  }
+
+  return (msg.value && msg.value.length) ? new ObjectId(msg.value) : undefined;
 }
 
 function convertTimestampToDate(val) {
 
   if (!val) {
-    return;
+    return val;
   }
 
   var millis = val.seconds * 1000 + Math.round(val.nanos / 1e6);
@@ -294,24 +298,27 @@ function convertTimestampToDate(val) {
 }
 
 function convertDateToTimestamp(val) {
-  if (val) {
-
-    if (isString(val)) {
-      val = new Date(val);
-    }
-
-    return {
-      seconds: Math.floor(val.getTime() / 1000),
-      nanos: val.getUTCMilliseconds() * 1e6
-    };
+  if (!val) {
+    return val;
   }
+
+  if (isString(val)) {
+    val = new Date(val);
+  }
+
+  return {
+    seconds: Math.floor(val.getTime() / 1000),
+    nanos: val.getUTCMilliseconds() * 1e6
+  };
 }
 
 function convertFromObjectId(val) {
-  if (val) {
-    var strRep = val.toString ? val.toString() : String(val);
-    return {value: new Buffer(strRep, 'hex')};
+  if (!val) {
+    return val;
   }
+
+  var strRep = val.toString ? val.toString() : String(val);
+  return {value: new Buffer(strRep, 'hex')};
 }
 
 function convertToJSONObject(obj) {
@@ -321,6 +328,10 @@ function convertToJSONObject(obj) {
 }
 
 function convertFromJSONObject(obj) {
+  if (!obj) {
+    return obj;
+  }
+
   try {
     return JSON.parse(obj.representation);
   } catch (err) {
