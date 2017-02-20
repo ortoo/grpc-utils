@@ -18,6 +18,9 @@
   "devDependencies": {
     "eslint": "^2.11.1"
   },
+  "optionalDependencies": {
+    "opentracing": "^0.13.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "postversion": "git push && git push --tags"

@@ -5,6 +5,19 @@ const duplexer2 = require('duplexer2');
 const lowerFirst = require('lodash.lowerfirst');
 const through2 = require('through2');
 
+var opentracing;
+var tracer;
+try {
+  opentracing = require('opentracing');
+  tracer = opentracing.globalTracer();
+} catch (err) {
+  if (err.code !== 'MODULE_NOT_FOUND') {
+    throw err;
+  }
+  opentracing = null;
+  tracer = null;
+}
+
 module.exports = RPCServiceImplementation;
 
 function RPCServiceImplementation(TService, impl, transforms) {
@@ -169,6 +182,16 @@ function RPCServiceImplementation(TService, impl, transforms) {
     } else {
       // No streams
       wrappedImpl[methodName] = function (call, callback) {
+        var span;
+        if (tracer) {
+          span = tracer.startSpan(methodName);
+          span.setTag('component', 'grpc');
+          span.setTag('span.kind', 'server');
+          span.setTag('grpc.method_name', methodName);
+          // span.setTag('grpc.call_attributes', );
+          // span.setTag('grpc.headers');
+        }
+
         // Generate a new context
         var context = {};
         var data = call.request;
@@ -186,9 +209,18 @@ function RPCServiceImplementation(TService, impl, transforms) {
             }
           });
 
+          if (span) {
+            span.finish();
+          }
           callback(null, result);
         }).catch(function (err) {
           wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
+
+          if (span) {
+            span.logEvent('error', err);
+            span.setTag('error', true);
+            span.finish();
+          }
           callback(err);
         });
       };
