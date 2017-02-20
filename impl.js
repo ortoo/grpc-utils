@@ -184,7 +184,16 @@ function RPCServiceImplementation(TService, impl, transforms) {
       wrappedImpl[methodName] = function (call, callback) {
         var span;
         if (tracer) {
-          span = tracer.startSpan(methodName);
+          // Can we get a span from the metadata
+          let md = call.metadata.getMap();
+          let parentSpanContext = tracer.extract(opentracing.FORMAT_HTTP_HEADERS, md);
+
+          if (parentSpanContext) {
+            span = tracer.startSpan(methodName, {childOf: parentSpanContext});
+          } else {
+            span = tracer.startSpan(methodName);
+          }
+
           span.setTag('component', 'grpc');
           span.setTag('span.kind', 'server');
           span.setTag('grpc.method_name', methodName);
@@ -192,20 +201,29 @@ function RPCServiceImplementation(TService, impl, transforms) {
           // span.setTag('grpc.headers');
         }
 
-        // Generate a new context
-        var context = {};
-        var data = call.request;
+        var data = Object.assign({}, call.request);
 
         getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
-            data = transform.call(context, data);
+            data = transform(data);
           }
         });
 
-        Promise.try(impl[methodName].bind(context, data, call)).then(function (result) {
+        // Add in data to the context
+        var context = Object.assign({}, data.context || {});
+
+        if (span) {
+          context.opentracing = {
+            span
+          };
+        }
+
+        data.context = context;
+
+        Promise.try(impl[methodName].bind(undefined, data, call)).then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
             if (transform) {
-              result = transform.call(context, result);
+              result = transform(result);
             }
           });
 
@@ -217,7 +235,10 @@ function RPCServiceImplementation(TService, impl, transforms) {
           wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
 
           if (span) {
-            span.logEvent('error', err);
+            span.log({
+              event: 'error',
+              'error.object': err
+            });
             span.setTag('error', true);
             span.finish();
           }

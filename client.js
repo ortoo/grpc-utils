@@ -3,6 +3,20 @@ const lowerFirst = require('lodash.lowerfirst');
 const Backoff = require('backo');
 const through2 = require('through2');
 const duplexer2 = require('duplexer2');
+const grpc = require('grpc');
+
+var opentracing;
+var tracer;
+try {
+  opentracing = require('opentracing');
+  tracer = opentracing.globalTracer();
+} catch (err) {
+  if (err.code !== 'MODULE_NOT_FOUND') {
+    throw err;
+  }
+  opentracing = null;
+  tracer = null;
+}
 
 module.exports = RPCRetryServiceClientFactory;
 
@@ -169,12 +183,18 @@ function RPCBaseServiceClientFactory(TService, transforms) {
         return origInStream;
       };
     } else if (child.responseStream) {
-      RPCBaseServiceClient.prototype[methodName] = function (data, ...args) {
+      RPCBaseServiceClient.prototype[methodName] = function (data, metadata, ...args) {
+        var tracingContext;
+        ({tracingContext, data} = extractTracingContext(data));
+        metadata = metadata ? metadata.clone() : grpc.Metadata();
+
         getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
             data = transform(data);
           }
         });
+
+        var span = createTracingSpan({tracingContext, methodName, metadata});
 
         var call = this._grpcClient[methodName](data, ...args);
         var outStream = through2.obj();
@@ -195,24 +215,41 @@ function RPCBaseServiceClientFactory(TService, transforms) {
           }
         });
 
+        if (span) {
+          call.on('end', function () {
+            span.finish();
+          });
+        }
+
+
         return outStream;
       };
     } else {
       // No streams
       let promisifiedClient = Promise.promisify(TService.prototype[methodName]);
-      RPCBaseServiceClient.prototype[methodName] = function (data, ...args) {
+      RPCBaseServiceClient.prototype[methodName] = function (data, metadata, ...args) {
+        var tracingContext;
+        ({tracingContext, data} = extractTracingContext(data));
+        metadata = metadata ? metadata.clone() : grpc.Metadata();
+
         getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
             data = transform(data);
           }
         });
 
-        return promisifiedClient.call(this._grpcClient, data, ...args).then(function (result) {
+        var span = createTracingSpan({tracingContext, methodName, metadata});
+
+        return promisifiedClient.call(this._grpcClient, data, metadata, ...args).then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
             if (transform) {
               result = transform(result);
             }
           });
+
+          if (span) {
+            span.finish();
+          }
 
           return result;
         });
@@ -235,4 +272,43 @@ function createTransformStream(transformer) {
   return through2.obj(function(obj, enc, callback) {
     callback(null, transformer(obj));
   });
+}
+
+function extractTracingContext(data) {
+  // Remove any opentracing
+  data = Object.assign({}, data);
+  var tracingContext;
+  if (data.context && data.context.opentracing) {
+    tracingContext = data.context.opentracing;
+    delete data.context.opentracing;
+  }
+
+  return {tracingContext, data};
+}
+
+function createTracingSpan({tracingContext, metadata, methodName}) {
+  if (tracer) {
+    let span;
+    let parentSpan = tracingContext && tracingContext.span;
+
+    if (parentSpan) {
+      span = tracer.startSpan(methodName, {childOf: parentSpan.context()});
+    } else {
+      span = tracer.startSpan(methodName);
+    }
+
+    span.setTag('component', 'grpc');
+    span.setTag('span.kind', 'client');
+    span.setTag('grpc.method_name', methodName);
+    // span.setTag('grpc.call_attributes', );
+    // span.setTag('grpc.headers');
+    var carrier = {};
+    tracer.inject(span.context(), opentracing.FORMAT_HTTP_HEADERS, carrier);
+
+    for (let key of Object.keys(carrier)) {
+      metadata.add(key, carrier[key]);
+    }
+
+    return span;
+  }
 }

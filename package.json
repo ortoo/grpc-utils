@@ -9,6 +9,7 @@
     "bson-objectid": "^1.1.4",
     "debug": "^2.2.0",
     "duplexer2": "^0.1.4",
+    "grpc": "^1.1.2",
     "lodash.isobject": "^3.0.2",
     "lodash.isstring": "^4.0.1",
     "lodash.isundefined": "^3.0.1",
@@ -16,7 +17,13 @@
     "through2": "^2.0.1"
   },
   "devDependencies": {
-    "eslint": "^2.11.1"
+    "chai": "^3.5.0",
+    "eslint": "^2.11.1",
+    "eslint-plugin-mocha": "^4.8.0",
+    "grpc": "^1.1.2",
+    "mocha": "^3.2.0",
+    "opentracing": "^0.13.0",
+    "underscore": "^1.8.3"
   },
   "optionalDependencies": {
     "opentracing": "^0.13.0"
