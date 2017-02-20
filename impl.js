@@ -214,7 +214,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
         if (span) {
           context.opentracing = {
-            span
+            spanContext: span.context()
           };
         }
 

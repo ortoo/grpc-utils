@@ -186,7 +186,7 @@ function RPCBaseServiceClientFactory(TService, transforms) {
       RPCBaseServiceClient.prototype[methodName] = function (data, metadata, ...args) {
         var tracingContext;
         ({tracingContext, data} = extractTracingContext(data));
-        metadata = metadata ? metadata.clone() : grpc.Metadata();
+        metadata = metadata ? metadata.clone() : new grpc.Metadata();
 
         getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
@@ -230,7 +230,7 @@ function RPCBaseServiceClientFactory(TService, transforms) {
       RPCBaseServiceClient.prototype[methodName] = function (data, metadata, ...args) {
         var tracingContext;
         ({tracingContext, data} = extractTracingContext(data));
-        metadata = metadata ? metadata.clone() : grpc.Metadata();
+        metadata = metadata ? metadata.clone() : new grpc.Metadata();
 
         getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
@@ -289,10 +289,10 @@ function extractTracingContext(data) {
 function createTracingSpan({tracingContext, metadata, methodName}) {
   if (tracer) {
     let span;
-    let parentSpan = tracingContext && tracingContext.span;
+    let parentSpanContext = tracingContext && tracingContext.spanContext;
 
-    if (parentSpan) {
-      span = tracer.startSpan(methodName, {childOf: parentSpan.context()});
+    if (parentSpanContext) {
+      span = tracer.startSpan(methodName, {childOf: parentSpanContext});
     } else {
       span = tracer.startSpan(methodName);
     }
