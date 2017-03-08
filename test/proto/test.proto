@@ -4,6 +4,7 @@ package test;
 
 service TestService {
   rpc Hello(HelloRequest) returns (HelloResponse);
+  rpc Unavailable(HelloRequest) returns (HelloResponse); // Should always error
 }
 
 message HelloRequest {

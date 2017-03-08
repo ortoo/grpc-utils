@@ -51,7 +51,8 @@ function RPCRetryServiceClientFactory(TService, transforms) {
         var attempt = () => {
           var _super = Object.getPrototypeOf(RPCRetryServiceClient.prototype);
           return _super[methodName].apply(this, args).catch(err => {
-            if (backoff.attempts < this._maxAttempts && err.grpc_status === 14) {
+            var code = err.code || err.grpc_status;
+            if (backoff.attempts < this._maxAttempts && code === 14) {
               return Promise.delay(backoff.duration()).then(attempt);
             } else {
               throw err;
@@ -275,11 +276,11 @@ function createTransformStream(transformer) {
 }
 
 function extractTracingContext(data) {
-  // Remove any opentracing
+  var tracingContext = data.context && data.context.opentracing;
+
+  // Remove any opentracing if it is an enumerable property
   data = Object.assign({}, data);
-  var tracingContext;
   if (data.context && data.context.opentracing) {
-    tracingContext = data.context.opentracing;
     delete data.context.opentracing;
   }
 

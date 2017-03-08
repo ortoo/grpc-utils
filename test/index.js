@@ -5,6 +5,7 @@ const expect = require('chai').expect;
 // const {MockTracer} = require('opentracing/lib/mock_tracer');
 
 const grpc = require('grpc');
+const grpcErrors = require('grpc-errors');
 
 const grpcUtils = require('../');
 
@@ -41,6 +42,12 @@ describe('grpc-utils', function () {
       expect(message).to.equal('hello james');
     });
   });
+
+  it('should retry on unavailable', function() {
+    return client.unavailable({name: 'james'}).then(function ({message}) {
+      expect(message).to.equal('hello james');
+    });
+  });
 });
 
 function initTest() {
@@ -66,7 +73,7 @@ function initTest() {
 
   var finalImpl = grpcUtils.createImpl(service, testImpl, [serverTransforms]);
   finalImpl.on('callError', function (...args) {
-    server.emit('callError', ...args);
+    // server.emit('callError', ...args);
   });
 
   server.addProtoService(service.service, finalImpl);
@@ -83,8 +90,19 @@ function initTest() {
   return {server, client};
 }
 
+let unavailableCount = 0;
 const testImpl = {
   hello: function({name}) {
     return {message: 'hello ' + name};
+  },
+
+  unavailable: function({name}) {
+    unavailableCount++;
+    if (unavailableCount % 2) {
+      throw new grpcErrors.UnavailableError('unavailable');
+    } else {
+      return {message: 'hello ' + name};
+    }
+
   }
 };

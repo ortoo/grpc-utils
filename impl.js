@@ -213,9 +213,13 @@ function RPCServiceImplementation(TService, impl, transforms) {
         var context = Object.assign({}, data.context || {});
 
         if (span) {
-          context.opentracing = {
-            spanContext: span.context()
-          };
+          // Non-enumarable so that we don't pick it up, say with JSON.stringify
+          Object.defineProperty(context, 'opentracing', {
+            value: {
+              spanContext: span.context()
+            },
+            enumerable: false
+          });
         }
 
         data.context = context;
