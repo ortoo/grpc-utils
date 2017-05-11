@@ -14,6 +14,7 @@
     "lodash.isstring": "^4.0.1",
     "lodash.isundefined": "^3.0.1",
     "lodash.lowerfirst": "^4.3.1",
+    "protobufjs": "~6.7.3",
     "through2": "^2.0.1"
   },
   "devDependencies": {
@@ -24,14 +25,10 @@
     "grpc-errors": "^1.1.0",
     "mocha": "^3.2.0",
     "opentracing": "^0.13.0",
-    "protobufjs": "^6.7.3",
     "underscore": "^1.8.3"
   },
   "optionalDependencies": {
     "opentracing": "^0.13.0"
-  },
-  "peerDependencies": {
-    "protobufjs": "~6.7.3"
   },
   "scripts": {
     "test": "mocha",
