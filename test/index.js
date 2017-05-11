@@ -88,7 +88,7 @@ function initTest() {
   const server = new grpc.Server();
 
   var root = new ProtoBuf.Root();
-  var ns = root.loadSync(path.join(__dirname, 'proto/test.proto'));
+  var ns = root.loadSync(grpcUtils.applyProtoRoot(path.join(__dirname, 'proto/test.proto')));
   const testService = ns.lookupService('test.TestService');
 
   grpcUtils.applyCustomWrappers(ns);

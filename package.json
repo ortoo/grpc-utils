@@ -30,6 +30,9 @@
   "optionalDependencies": {
     "opentracing": "^0.13.0"
   },
+  "peerDependencies": {
+    "protobufjs": "~6.7.3"
+  },
   "scripts": {
     "test": "mocha",
     "postversion": "git push && git push --tags"

@@ -1,6 +1,9 @@
+const path = require('path');
+
 const ObjectId = require('bson-objectid');
 const isUndefined = require('lodash.isundefined');
 const isString = require('lodash.isstring');
+const ProtoBuf = require('protobufjs');
 
 const client = require('./client');
 const impl = require('./impl');
@@ -8,6 +11,7 @@ const impl = require('./impl');
 exports.createClient = client;
 exports.createImpl = impl;
 exports.applyCustomWrappers = applyCustomWrappers;
+exports.applyProtoRoot = applyProtoRoot;
 
 const wrappers = {};
 
@@ -142,4 +146,17 @@ function applyCustomWrappers(ns) {
       orig.setup();
     }
   }
+}
+
+function applyProtoRoot(filename, root) {
+  if (isString(filename)) {
+    return filename;
+  }
+  filename.root = path.resolve(filename.root) + '/';
+  root.resolvePath = function(originPath, importPath, alreadyNormalized) {
+    return ProtoBuf.util.path.resolve(filename.root,
+                                      importPath,
+                                      alreadyNormalized);
+  };
+  return filename.file;
 }
