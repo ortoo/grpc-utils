@@ -27,6 +27,7 @@ message HelloResponse {
   repeated string unsetarr = 9;
   int32 unsetint = 10;
   google.protobuf.Timestamp unsettime = 11;
+  ortoo.ObjectId stringobjid = 12;
 }
 
 enum TestEnum {

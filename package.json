@@ -1,6 +1,6 @@
 {
   "name": "@ortoo/grpc-utils",
-  "version": "2.1.2",
+  "version": "2.1.1",
   "description": "",
   "main": "index.js",
   "dependencies": {
@@ -14,7 +14,7 @@
     "lodash.isstring": "^4.0.1",
     "lodash.isundefined": "^3.0.1",
     "lodash.lowerfirst": "^4.3.1",
-    "protobufjs": "~6.7.3",
+    "protobufjs": "ortoo/protobuf.js#noobjcheck",
     "through2": "^2.0.1"
   },
   "devDependencies": {

@@ -56,7 +56,8 @@ describe('grpc-utils', function () {
           testenum,
           unsetarr,
           unsetint,
-          unsettime
+          unsettime,
+          stringobjid
         } = res;
         expect(message).to.equal('hello james');
         expect(time).to.be.a.Date;
@@ -71,6 +72,7 @@ describe('grpc-utils', function () {
         expect(unsetint).to.equal(0);
         expect(unsettime).to.be.null;
         expect(unsetarr).to.have.lengthOf(0);
+        expect(String(stringobjid)).to.equal('510928d5014ce75842000008');
       });
     });
   });
@@ -121,6 +123,7 @@ const testImpl = {
       testwrap: [1, 2],
       testwrap2: now,
       objid: new ObjectId(),
+      stringobjid: '510928d5014ce75842000008',
       stringmap: {
         nowIs: now
       },
