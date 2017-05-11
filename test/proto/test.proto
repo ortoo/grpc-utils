@@ -2,6 +2,10 @@ syntax = "proto3";
 
 package test;
 
+import "google/protobuf/timestamp.proto";
+import "wrappers.proto";
+import "ortoo.proto";
+
 service TestService {
   rpc Hello(HelloRequest) returns (HelloResponse);
   rpc Unavailable(HelloRequest) returns (HelloResponse); // Should always error
@@ -12,5 +16,21 @@ message HelloRequest {
 }
 
 message HelloResponse {
-  string message = 2;
+  string message = 1;
+  google.protobuf.Timestamp time = 2;
+  ortoo.resource.wrappers.arrays.Int32 testwrap = 3;
+  ortoo.resource.wrappers.values.Timestamp testwrap2 = 4;
+  ortoo.ObjectId objid = 5;
+  map<string, google.protobuf.Timestamp> stringmap = 6;
+  ortoo.JSONObject json = 7;
+  TestEnum testenum = 8;
+  repeated string unsetarr = 9;
+  int32 unsetint = 10;
+  google.protobuf.Timestamp unsettime = 11;
+}
+
+enum TestEnum {
+  default = 0;
+  one = 1;
+  two = 2;
 }

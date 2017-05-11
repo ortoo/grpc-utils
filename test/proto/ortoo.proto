@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package ortoo;
+
+message ObjectId {
+  bytes value = 1;
+}
+
+message JSONObject {
+  string representation = 1;
+}

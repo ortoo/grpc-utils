@@ -36,10 +36,7 @@ function RPCRetryServiceClientFactory(TService, transforms) {
   RPCRetryServiceClient.prototype.constructor = RPCRetryServiceClient;
 
   /* eslint-disable no-loop-func */
-  for (let child of TService.service.children) {
-    if (child.className !== 'Service.RPCMethod') {
-      continue;
-    }
+  for (let child of TService.methodsArray) {
 
     let methodName = lowerFirst(child.name);
 
@@ -68,29 +65,28 @@ function RPCRetryServiceClientFactory(TService, transforms) {
   return RPCRetryServiceClient;
 }
 
-function RPCBaseServiceClientFactory(TService, transforms) {
-
+function RPCBaseServiceClientFactory(TService, transforms=[]) {
   const requestTransforms = {};
   const responseTransforms = {};
 
+  const Client = grpc.loadObject(TService);
+
   function RPCBaseServiceClient(addr, creds) {
-    this._grpcClient = new TService(addr, creds);
+    this._grpcClient = new Client(addr, creds);
   }
 
   RPCBaseServiceClient.prototype = {};
   RPCBaseServiceClient.prototype.constructor = RPCBaseServiceClient;
 
   /* eslint-disable no-loop-func */
-  for (let child of TService.service.children) {
-    if (child.className !== 'Service.RPCMethod') {
-      continue;
-    }
-
+  for (let child of TService.methodsArray) {
     let methodName = lowerFirst(child.name);
 
 
     requestTransforms[methodName] = requestTransforms[methodName] || [];
     responseTransforms[methodName] = responseTransforms[methodName] || [];
+
+    child.resolve();
 
     // requestTransform1 -> requestTransform2 -> RPC client -> responseTransform2 -> responseTransform1
     for (let {request, response} of transforms) {
@@ -227,7 +223,7 @@ function RPCBaseServiceClientFactory(TService, transforms) {
       };
     } else {
       // No streams
-      let promisifiedClient = Promise.promisify(TService.prototype[methodName]);
+      let promisifiedClient = Promise.promisify(Client.prototype[methodName]);
       RPCBaseServiceClient.prototype[methodName] = function (data, metadata, ...args) {
         var tracingContext;
         ({tracingContext, data} = extractTracingContext(data));

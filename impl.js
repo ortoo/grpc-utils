@@ -20,23 +20,20 @@ try {
 
 module.exports = RPCServiceImplementation;
 
-function RPCServiceImplementation(TService, impl, transforms) {
+function RPCServiceImplementation(service, impl, transforms=[]) {
   const requestTransforms = {};
   const responseTransforms = {};
 
   var wrappedImpl = new EventEmitter();
-
-  for (let child of TService.service.children) {
-    if (child.className !== 'Service.RPCMethod') {
-      continue;
-    }
-
+  for (let child of service.methodsArray) {
     let methodName = lowerFirst(child.name);
 
     // Is this implemented. If not then ignore
     if (!impl[methodName]) {
       continue;
     }
+
+    child.resolve();
 
     requestTransforms[methodName] = requestTransforms[methodName] || [];
     responseTransforms[methodName] = responseTransforms[methodName] || [];
@@ -99,7 +96,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
         }
 
         function handleErr(err) {
-          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
+          wrappedImpl.emit('callError', err, call, {service: service, methodName});
           call.emit('error', err);
         }
 
@@ -138,7 +135,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
 
           callback(null, result);
         }).catch(function (err) {
-          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
+          wrappedImpl.emit('callError', err, call, {service: service, methodName});
           callback(err);
         });
       };
@@ -175,7 +172,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
         }
 
         function handleErr(err) {
-          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
+          wrappedImpl.emit('callError', err, call, {service: service, methodName});
           call.emit('error', err);
         }
       };
@@ -236,7 +233,7 @@ function RPCServiceImplementation(TService, impl, transforms) {
           }
           callback(null, result);
         }).catch(function (err) {
-          wrappedImpl.emit('callError', err, call, {service: TService.service, methodName});
+          wrappedImpl.emit('callError', err, call, {service: service, methodName});
 
           if (span) {
             span.log({

@@ -1,354 +1,145 @@
-'use strict';
-
 const ObjectId = require('bson-objectid');
-const isObject = require('lodash.isobject');
 const isUndefined = require('lodash.isundefined');
 const isString = require('lodash.isstring');
-const through2 = require('through2');
-const debug = require('debug')('@ortoo/grpc-utils:index');
 
 const client = require('./client');
 const impl = require('./impl');
 
-exports.objSerializeStream = objSerializeStream;
-exports.objDeserializeStream = objDeserializeStream;
-exports.createObjectSerializer = createObjectSerializer;
-exports.createObjectDeserializer = createObjectDeserializer;
 exports.createClient = client;
 exports.createImpl = impl;
+exports.applyCustomWrappers = applyCustomWrappers;
 
-const WRAPPER_RE = /\.wrappers\.(arrays|values)\.\w+$/;
+const wrappers = {};
 
-function objSerializeStream(serializer) {
-  return through2.obj(function(obj, enc, callback) {
-    callback(null, serializer(obj));
-  });
-}
-
-function objDeserializeStream(deserializer) {
-  return through2.obj(function(obj, enc, callback) {
-    callback(null, deserializer(obj));
-  });
-}
-
-function createObjectSerializer(TObj, removeNonExisting) {
-
-  var {timestampPaths,
-       objectIdPaths,
-       jsonPaths,
-       wrapperPaths,
-       enumPaths,
-       allPaths} = generateConversionPaths(TObj);
-
-  return serializeObject;
-
-  function serializeObject(obj, prefix) {
-    if (!prefix) {
-      debug('serializing', obj);
-    }
-
-    prefix = prefix || '';
-
-    var outObj;
-    var isArray = false;
-    if (Array.isArray(obj)) {
-      outObj = [];
-      isArray = true;
-    } else if (isObject(obj)) {
-      outObj = {};
-    } else {
-      return obj; // A primitive. Just return it
-    }
-
-    for (let key of Object.keys(obj)) {
-      let val = obj[key];
-      let res = val;
-
-      let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
-
-      let isWrapper = wrapperPaths.has(path);
-
-      if (Array.isArray(val) && !jsonPaths.has(path)) {
-        path += '[]';
-      }
-
-      // Ignore anything thats not in a given path
-      if (removeNonExisting && !allPaths.has(path)) {
-        debug('Ignoring', path, allPaths);
-        continue;
-      }
-
-      debug('Processing path', path);
-
-      try {
-        // Is the key in our timestamp paths
-        if (jsonPaths.has(path)) {
-          res = convertToJSONObject(val);
-        } else if (Array.isArray(val)) {
-          res = serializeObject(val, `${path}.`);
-        } else if (timestampPaths.has(path)) {
-          res = convertDateToTimestamp(val);
-        } else if (objectIdPaths.has(path)) {
-          res = convertFromObjectId(val);
-        } else if (enumPaths.has(path)) {
-          res = convertStringToEnum(val, path);
-        } else if (isObject(val)) {
-          res = serializeObject(val, `${path}.`);
-        }
-      } catch (err) {
-        debug('Error converting path', path, val);
-        throw err;
-      }
-
-      if (!isUndefined(res)) {
-        outObj[key] = isWrapper ? convertToWrapper(res) : res;
-      }
-    }
-
-    if (!prefix) {
-      debug('Serialized', outObj);
-    }
-    return outObj;
-  }
-
-  function convertStringToEnum(val, path) {
-
-    if (!isString(val)) {
+wrappers['.google.protobuf.Timestamp'] = {
+  fromObject: function (val) {
+    if (!val) {
       return val;
     }
 
-    var TEnum = enumPaths.get(path);
-    var child = TEnum.children.find(child => child.name === val);
-
-    if (!child) {
-      throw new Error(`Not a valid enum value: ${val}`);
-    }
-
-    return child.id;
-  }
-
-}
-
-function createObjectDeserializer(TObj) {
-
-  var {timestampPaths,
-       objectIdPaths,
-       wrapperPaths,
-       messagePaths,
-       enumPaths,
-       jsonPaths} = generateConversionPaths(TObj);
-
-  return deserializeObject;
-
-  function deserializeObject(obj, prefix) {
-    if (!prefix) {
-      debug('deserializing', obj);
-    }
-
-    prefix = prefix || '';
-
-    var outObj;
-    var isArray = false;
-    if (Array.isArray(obj)) {
-      outObj = [];
-      isArray = true;
-    } else {
-      outObj = {};
-    }
-
-    for (let key of Object.keys(obj)) {
-      let val = obj[key];
-      let path = isArray ? prefix.slice(0, -1) : prefix + key; // remove the last .
-
-      // If an object was not defined it will come down the wire as _null_. This is a bit
-      // annoying because it makes handling actually null values a pain. So we only support
-      // null values in wrappers where the isNull field gets set if the value is null.
-      // We can then have undefined/null/value for these wrappers which matches our DB for example
-      if (val === null && messagePaths.has(path)) {
-        val = undefined;
-      } else if (wrapperPaths.has(path)) {
-        val = convertFromWrapper(val);
-      }
-
-      if (Array.isArray(val)) {
-        path += '[]';
-      }
-
-      let res = val;
-
-      debug('Processing path', path);
-
-      // Is the key in our timestamp paths
-      if (jsonPaths.has(path)) {
-        res = convertFromJSONObject(val);
-      } else if (Array.isArray(val)) {
-        res = deserializeObject(val, `${path}.`);
-      } else if (timestampPaths.has(path)) {
-        res = convertTimestampToDate(val);
-      } else if (objectIdPaths.has(path)) {
-        res = convertToObjectId(val);
-      } else if (enumPaths.has(path)) {
-        res = convertEnumToString(val, path);
-      } else if (isObject(val)) {
-        res = deserializeObject(val, `${path}.`);
-      }
-
-      if (!isUndefined(res)) {
-        outObj[key] = res;
-      }
-    }
-
-    if (!prefix) {
-      debug('Deserialized', outObj);
-    }
-
-    return outObj;
-  }
-
-  function convertEnumToString(val, path) {
     if (isString(val)) {
+      val = new Date(val);
+    }
+
+    return {
+      seconds: Math.floor(val.getTime() / 1000),
+      nanos: val.getUTCMilliseconds() * 1e6
+    };
+  },
+
+  toObject: function(val) {
+    if (!val) {
       return val;
     }
 
-    var TEnum = enumPaths.get(path);
-    var child = TEnum.children.find(child => child.id === val);
-
-    if (!child) {
-      throw new Error(`Not a valid enum value: ${val}`);
-    }
-
-    return child.name;
+    var millis = val.seconds * 1000 + Math.round(val.nanos / 1e6);
+    return new Date(millis);
   }
-}
+};
 
-function generateConversionPaths(TMessage, opts, prefix) {
-  prefix = prefix || '';
-
-  if (!opts) {
-    opts = {
-      objectIdPaths: new Set(),
-      timestampPaths: new Set(),
-      jsonPaths: new Set(),
-      allPaths: new Set(),
-      wrapperPaths: new Set(),
-      messagePaths: new Set(),
-      enumPaths: new Map()
+wrappers['.ortoo.JSONObject'] = {
+  fromObject: function (obj) {
+    return {
+      representation: JSON.stringify(obj)
     };
+  },
+
+  toObject: function (obj) {
+    if (!obj) {
+      return obj;
+    }
+
+    try {
+      return JSON.parse(obj.representation);
+    } catch (err) {
+      // ignore
+    }
   }
+};
 
-  var {objectIdPaths, timestampPaths, jsonPaths, allPaths, wrapperPaths, messagePaths, enumPaths} = opts;
-
-  for (let field of TMessage.children) {
-
-    if (field.className !== 'Message.Field') {
-      continue;
+wrappers['.ortoo.ObjectId'] = {
+  fromObject: function (val) {
+    if (!val) {
+      return val;
     }
 
-    var pathrep = prefix + field.name;
+    var strRep = val.toString ? val.toString() : String(val);
+    return {value: new Buffer(strRep, 'hex')};
+  },
 
-    // First check if we are a wrapper path. If so mark it and resolve down
-    if (field.type.name === 'message' && WRAPPER_RE.test(field.resolvedType.fqn())) {
-      wrapperPaths.add(pathrep);
-
-      field = field.resolvedType.getChild('value');
+  toObject: function (msg) {
+    if (!msg) {
+      return msg;
     }
 
-    var suffix = field.repeated ? '[]' : '';
+    return (msg.value && msg.value.length) ? new ObjectId(msg.value) : undefined;
+  }
+};
 
-    pathrep = pathrep + suffix;
-    allPaths.add(pathrep);
+wrappers['.ortoo.resource.wrappers.values.*'] = wrappers['.ortoo.resource.wrappers.arrays.*'] = {
+  fromObject: function (val) {
+    if (val === null) {
+      return {isNull: true};
+    } else if (!isUndefined(val)) {
+      var valField = this.fields.value;
+      let resolvedType = valField.resolvedType;
+      let repeated = valField.repeated;
 
-    if (field.type.name === 'message') {
-      messagePaths.add(pathrep);
+      let valArr = repeated ? val : [val];
+      let outValArr = valArr.map((outVal) => {
+        return resolvedType ? resolvedType.fromObject(outVal) : outVal;
+      });
 
-      var fqn = field.resolvedType.fqn();
-      if (fqn === '.ortoo.ObjectId') {
-        objectIdPaths.add(pathrep);
-      } else if (fqn === '.ortoo.JSONObject') {
-        jsonPaths.add(pathrep);
-      } else if (fqn === '.google.protobuf.Timestamp') {
-        timestampPaths.add(pathrep);
-      } else {
-        generateConversionPaths(field.resolvedType, opts, pathrep + '.');
+      return {value: repeated ? outValArr : outValArr[0]};
+    }
+  },
+
+  toObject: function (obj, opts) {
+    if (obj && obj.isNull) {
+      return null;
+    } else if (obj) {
+      var valField = this.fields.value;
+      let resolvedType = valField.resolvedType;
+      let repeated = valField.repeated;
+
+      let valArr = repeated ? obj.value : [obj.value];
+      let outValArr = valArr.map((outVal) => {
+        return resolvedType ? resolvedType.toObject(outVal, opts) : outVal;
+      });
+
+      return repeated ? outValArr : outValArr[0];
+    }
+  }
+};
+
+function applyCustomWrappers(ns) {
+  for (let fullName of Object.keys(wrappers)) {
+    let wrapper = wrappers[fullName];
+
+    let origArr = [];
+    if (fullName.endsWith('.*')) {
+      let parentNs = ns.lookup(fullName.replace(/\.\*$/, ''));
+      if (parentNs) {
+        origArr = parentNs.nestedArray;
       }
-    } else if (field.type.name === 'enum') {
-      enumPaths.set(pathrep, field.resolvedType);
+    } else {
+      let orig = ns.lookup(fullName);
+      if (orig) {
+        origArr.push(orig);
+      }
     }
-  }
 
-  return opts;
-}
-
-function convertToObjectId(msg) {
-  if (!msg) {
-    return msg;
-  }
-
-  return (msg.value && msg.value.length) ? new ObjectId(msg.value) : undefined;
-}
-
-function convertTimestampToDate(val) {
-
-  if (!val) {
-    return val;
-  }
-
-  var millis = val.seconds * 1000 + Math.round(val.nanos / 1e6);
-  return new Date(millis);
-}
-
-function convertDateToTimestamp(val) {
-  if (!val) {
-    return val;
-  }
-
-  if (isString(val)) {
-    val = new Date(val);
-  }
-
-  return {
-    seconds: Math.floor(val.getTime() / 1000),
-    nanos: val.getUTCMilliseconds() * 1e6
-  };
-}
-
-function convertFromObjectId(val) {
-  if (!val) {
-    return val;
-  }
-
-  var strRep = val.toString ? val.toString() : String(val);
-  return {value: new Buffer(strRep, 'hex')};
-}
-
-function convertToJSONObject(obj) {
-  return {
-    representation: JSON.stringify(obj)
-  };
-}
-
-function convertFromJSONObject(obj) {
-  if (!obj) {
-    return obj;
-  }
-
-  try {
-    return JSON.parse(obj.representation);
-  } catch (err) {
-    // ignore
-  }
-}
-
-function convertToWrapper(val) {
-  if (val === null) {
-    return {isNull: true};
-  } else if (!isUndefined(val)) {
-    return {value: val};
-  }
-}
-
-function convertFromWrapper(obj) {
-  if (obj) {
-    return obj.isNull ? null : obj.value;
+    for (let orig of origArr) {
+      let origSetup = orig.setup;
+      orig.setup = function (...args) {
+        origSetup.call(this, args);
+        let originalThis = Object.create(this);
+        originalThis.fromObject = this.fromObject;
+        this.fromObject = wrapper.fromObject.bind(originalThis);
+        originalThis.toObject = this.toObject;
+        this.toObject = wrapper.toObject.bind(originalThis);
+      };
+      orig.setup();
+    }
   }
 }

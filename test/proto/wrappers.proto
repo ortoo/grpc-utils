@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package ortoo.resource.wrappers;
+
+message values {
+  message Timestamp {
+    google.protobuf.Timestamp value = 1;
+    bool isNull = 2;
+  }
+}
+
+message arrays {
+  message Int32 {
+    repeated int32 value = 1;
+    bool isNull = 2;
+  }
+}
