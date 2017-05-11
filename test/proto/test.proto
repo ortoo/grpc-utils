@@ -18,8 +18,8 @@ message HelloRequest {
 message HelloResponse {
   string message = 1;
   google.protobuf.Timestamp time = 2;
-  ortoo.resource.wrappers.arrays.Int32 testwrap = 3;
-  ortoo.resource.wrappers.values.Timestamp testwrap2 = 4;
+  ortoo.resource.Group.wrappers.arrays.Int32 testwrap = 3;
+  ortoo.resource.Group.wrappers.values.Timestamp testwrap2 = 4;
   ortoo.ObjectId objid = 5;
   map<string, google.protobuf.Timestamp> stringmap = 6;
   ortoo.JSONObject json = 7;

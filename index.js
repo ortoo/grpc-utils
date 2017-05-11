@@ -80,7 +80,7 @@ wrappers['.ortoo.ObjectId'] = {
   }
 };
 
-wrappers['.ortoo.resource.wrappers.values.*'] = wrappers['.ortoo.resource.wrappers.arrays.*'] = {
+wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wrappers.arrays.*'] = {
   fromObject: function (val) {
     if (val === null) {
       return {isNull: true};
@@ -120,18 +120,7 @@ function applyCustomWrappers(ns) {
   for (let fullName of Object.keys(wrappers)) {
     let wrapper = wrappers[fullName];
 
-    let origArr = [];
-    if (fullName.endsWith('.*')) {
-      let parentNs = ns.lookup(fullName.replace(/\.\*$/, ''));
-      if (parentNs) {
-        origArr = parentNs.nestedArray;
-      }
-    } else {
-      let orig = ns.lookup(fullName);
-      if (orig) {
-        origArr.push(orig);
-      }
-    }
+    let origArr = getAppliableTypes(fullName, ns);
 
     for (let orig of origArr) {
       let origSetup = orig.setup;
@@ -146,6 +135,27 @@ function applyCustomWrappers(ns) {
       orig.setup();
     }
   }
+}
+
+function getAppliableTypes(wrapperName, root) {
+  if (!wrapperName) {
+    return [root];
+  }
+
+  var out = [];
+  var pathSpl = wrapperName.split('.*');
+  var parent = root.lookup(pathSpl[0]);
+
+  if (parent && pathSpl.length > 1) {
+    // Want all children of the parent
+    for (let child of parent.nestedArray) {
+      out.push(...getAppliableTypes([...pathSpl].splice(1).join('.*').replace(/^\./, ''), child));
+    }
+  } else if (parent) {
+    out.push(parent);
+  }
+
+  return out;
 }
 
 function applyProtoRoot(filename, root) {
