@@ -57,7 +57,10 @@ describe('grpc-utils', function () {
           unsetarr,
           unsetint,
           unsettime,
-          stringobjid
+          stringobjid,
+          nullwrap,
+          undefinedwrap,
+          enumArray
         } = res;
         expect(message).to.equal('hello james');
         expect(time).to.be.a.Date;
@@ -73,6 +76,9 @@ describe('grpc-utils', function () {
         expect(unsettime).to.be.null;
         expect(unsetarr).to.have.lengthOf(0);
         expect(String(stringobjid)).to.equal('510928d5014ce75842000008');
+        expect(nullwrap).to.be.null;
+        expect(undefinedwrap).to.be.undefined;
+        expect(enumArray).to.have.members(['one', 'zero', 'zero', 'one']);
       });
     });
   });
@@ -129,7 +135,9 @@ const testImpl = {
       },
       undef: 'field',
       json: {some: {field: 'val'}},
-      testenum: 'two'
+      testenum: 'two',
+      nullwrap: null,
+      enumArray: ['one', 'two', 'zero', 1]
     };
   },
 

@@ -91,6 +91,10 @@ wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wr
 
       let valArr = repeated ? val : [val];
       let outValArr = valArr.map((outVal) => {
+        if (resolvedType instanceof ProtoBuf.Enum) {
+          return isString(outVal) ? resolvedType.values[outVal] : outVal;
+        }
+
         return resolvedType ? resolvedType.fromObject(outVal) : outVal;
       });
 
@@ -108,6 +112,10 @@ wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wr
 
       let valArr = repeated ? obj.value : [obj.value];
       let outValArr = valArr.map((outVal) => {
+        if (resolvedType instanceof ProtoBuf.Enum) {
+          return isString(outVal) ? outVal : resolvedType.valuesById[outVal];
+        }
+
         return resolvedType ? resolvedType.toObject(outVal, opts) : outVal;
       });
 

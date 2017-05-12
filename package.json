@@ -10,6 +10,7 @@
     "debug": "^2.2.0",
     "duplexer2": "^0.1.4",
     "grpc": "^1.1.2",
+    "is-plain-object": "^2.0.1",
     "lodash.isobject": "^3.0.2",
     "lodash.isstring": "^4.0.1",
     "lodash.isundefined": "^3.0.1",

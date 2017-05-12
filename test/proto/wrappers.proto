@@ -2,6 +2,11 @@ syntax = "proto3";
 
 package ortoo.resource.Group.wrappers;
 
+enum TestWrappedEnum {
+  zero = 0;
+  one = 1;
+}
+
 message values {
   message Timestamp {
     google.protobuf.Timestamp value = 1;
@@ -18,5 +23,9 @@ message arrays {
   message Timestamp {
     repeated google.protobuf.Timestamp value = 1;
     bool isNull = 2;
+  }
+
+  message TestWrappedEnumArray {
+    repeated TestWrappedEnum value = 1;
   }
 }
