@@ -60,7 +60,8 @@ describe('grpc-utils', function () {
           stringobjid,
           nullwrap,
           undefinedwrap,
-          enumArray
+          enumArray,
+          wrappedMap
         } = res;
         expect(message).to.equal('hello james');
         expect(time).to.be.a.Date;
@@ -79,6 +80,11 @@ describe('grpc-utils', function () {
         expect(nullwrap).to.be.null;
         expect(undefinedwrap).to.be.undefined;
         expect(enumArray).to.have.members(['one', 'zero', 'zero', 'one']);
+        expect(wrappedMap).to.deep.equal({
+          some: 'value',
+          inA: 'map',
+          otherwise: null
+        });
       });
     });
   });
@@ -137,7 +143,12 @@ const testImpl = {
       json: {some: {field: 'val'}},
       testenum: 'two',
       nullwrap: null,
-      enumArray: ['one', 'two', 'zero', 1]
+      enumArray: ['one', 'two', 'zero', 1],
+      wrappedMap: {
+        some: 'value',
+        inA: 'map',
+        otherwise: null
+      }
     };
   },
 

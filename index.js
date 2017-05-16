@@ -87,18 +87,21 @@ wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wr
     } else if (!isUndefined(val)) {
       var valField = this.fields.value;
       let resolvedType = valField.resolvedType;
-      let repeated = valField.repeated;
 
-      let valArr = repeated ? val : [val];
-      let outValArr = valArr.map((outVal) => {
-        if (resolvedType instanceof ProtoBuf.Enum) {
-          return isString(outVal) ? resolvedType.values[outVal] : outVal;
+      // Could be map, array or individual value
+      if (valField.map) {
+        let outVal = {};
+        var key;
+        for (var keys = Object.keys(val), ii = 0; ii < keys.length ; ++ii) {
+          key = keys[ii];
+          outVal[key] = performWrap(resolvedType, val[key]);
         }
-
-        return resolvedType ? resolvedType.fromObject(outVal) : outVal;
-      });
-
-      return {value: repeated ? outValArr : outValArr[0]};
+        return {value: outVal};
+      } else if (valField.repeated) {
+        return {value: val.map(outVal => performWrap(resolvedType, outVal))};
+      } else {
+        return {value: performWrap(resolvedType, val)};
+      }
     }
   },
 
@@ -108,18 +111,21 @@ wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wr
     } else if (obj) {
       var valField = this.fields.value;
       let resolvedType = valField.resolvedType;
-      let repeated = valField.repeated;
+      let val = obj.value;
 
-      let valArr = repeated ? obj.value : [obj.value];
-      let outValArr = valArr.map((outVal) => {
-        if (resolvedType instanceof ProtoBuf.Enum) {
-          return isString(outVal) ? outVal : resolvedType.valuesById[outVal];
+      if (valField.map) {
+        let outVal = {};
+        var key;
+        for (var keys = Object.keys(val), ii = 0; ii < keys.length ; ++ii) {
+          key = keys[ii];
+          outVal[key] = performUnwrap(resolvedType, val[key], opts);
         }
-
-        return resolvedType ? resolvedType.toObject(outVal, opts) : outVal;
-      });
-
-      return repeated ? outValArr : outValArr[0];
+        return outVal;
+      } else if (valField.repeated) {
+        return val.map(outVal => performUnwrap(resolvedType, outVal, opts));
+      } else {
+        return performUnwrap(resolvedType, val, opts);
+      }
     }
   }
 };
@@ -143,6 +149,22 @@ function applyCustomWrappers(ns) {
       orig.setup();
     }
   }
+}
+
+function performWrap(resolvedType, outVal) {
+  if (resolvedType instanceof ProtoBuf.Enum) {
+    return isString(outVal) ? resolvedType.values[outVal] : outVal;
+  }
+
+  return resolvedType ? resolvedType.fromObject(outVal) : outVal;
+}
+
+function performUnwrap(resolvedType, outVal, opts) {
+  if (resolvedType instanceof ProtoBuf.Enum) {
+    return isString(outVal) ? outVal : resolvedType.valuesById[outVal];
+  }
+
+  return resolvedType ? resolvedType.toObject(outVal, opts) : outVal;
 }
 
 function getAppliableTypes(wrapperName, root) {

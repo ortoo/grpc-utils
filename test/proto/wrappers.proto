@@ -12,6 +12,16 @@ message values {
     google.protobuf.Timestamp value = 1;
     bool isNull = 2;
   }
+
+  message string_StringMap {
+    map<string, StringValue> value = 1;
+    bool isNull = 2;
+  }
+
+  message StringValue {
+    string value = 1;
+    bool isNull = 2;
+  }
 }
 
 message arrays {

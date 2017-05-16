@@ -31,6 +31,7 @@ message HelloResponse {
   ortoo.resource.Group.wrappers.arrays.Int32 nullwrap = 13;
   ortoo.resource.Group.wrappers.arrays.Timestamp undefinedwrap = 14;
   ortoo.resource.Group.wrappers.arrays.TestWrappedEnumArray enumArray = 15;
+  ortoo.resource.Group.wrappers.values.string_StringMap wrappedMap = 16;
 }
 
 enum TestEnum {
