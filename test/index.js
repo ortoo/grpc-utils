@@ -61,7 +61,9 @@ describe('grpc-utils', function () {
           nullwrap,
           undefinedwrap,
           enumArray,
-          wrappedMap
+          wrappedMap,
+          oneofMap,
+          oneofTimestamp
         } = res;
         expect(message).to.equal('hello james');
         expect(time).to.be.a.Date;
@@ -85,17 +87,21 @@ describe('grpc-utils', function () {
           inA: 'map',
           otherwise: null
         });
+        expect(oneofTimestamp).to.be.undefined;
+        expect(oneofMap).to.deep.equal({
+          mapping: 'is great!'
+        });
       });
     });
   });
 
-  describe('retries', function () {
-    it('should retry on unavailable', function() {
-      return client.unavailable({name: 'james'}).then(function ({message}) {
-        expect(message).to.equal('hello james');
-      });
-    });
-  });
+  // describe('retries', function () {
+  //   it('should retry on unavailable', function() {
+  //     return client.unavailable({name: 'james'}).then(function ({message}) {
+  //       expect(message).to.equal('hello james');
+  //     });
+  //   });
+  // });
 });
 
 function initTest() {
@@ -148,7 +154,13 @@ const testImpl = {
         some: 'value',
         inA: 'map',
         otherwise: null
-      }
+      },
+
+      oneofMap: {
+        mapping: 'is great!'
+      },
+
+      secondOneOfString: 'hi there'
     };
   },
 

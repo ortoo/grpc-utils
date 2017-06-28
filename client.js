@@ -1,6 +1,5 @@
 const Promise = require('bluebird');
 const lowerFirst = require('lodash.lowerfirst');
-const Backoff = require('backo');
 const through2 = require('through2');
 const duplexer2 = require('duplexer2');
 const grpc = require('grpc');
@@ -18,52 +17,7 @@ try {
   tracer = null;
 }
 
-module.exports = RPCRetryServiceClientFactory;
-
-function RPCRetryServiceClientFactory(TService, transforms) {
-  const RPCBaseServiceClient = RPCBaseServiceClientFactory(TService, transforms);
-
-  function RPCRetryServiceClient(addr, creds, opts) {
-    RPCBaseServiceClient.call(this, addr, creds);
-
-    opts = opts || {};
-    this._maxAttempts = opts.maxAttempts || 10;
-    this._minMs = opts.min || 100;
-    this._maxMs = opts.max || 10000;
-  }
-
-  RPCRetryServiceClient.prototype = Object.create(RPCBaseServiceClient.prototype);
-  RPCRetryServiceClient.prototype.constructor = RPCRetryServiceClient;
-
-  /* eslint-disable no-loop-func */
-  for (let child of TService.methodsArray) {
-
-    let methodName = lowerFirst(child.name);
-
-    // Don't retry on streams - they should just send errors down the stream
-    if (!(child.responseStream || child.requestStream)) {
-      RPCRetryServiceClient.prototype[methodName] = function (...args) {
-        var backoff = new Backoff({min: this._minMs, max: this._maxMs});
-
-        var attempt = () => {
-          var _super = Object.getPrototypeOf(RPCRetryServiceClient.prototype);
-          return _super[methodName].apply(this, args).catch(err => {
-            var code = err.code || err.grpc_status;
-            if (backoff.attempts < this._maxAttempts && code === 14) {
-              return Promise.delay(backoff.duration()).then(attempt);
-            } else {
-              throw err;
-            }
-          });
-        };
-
-        return attempt();
-      };
-    }
-  }
-
-  return RPCRetryServiceClient;
-}
+module.exports = RPCBaseServiceClientFactory;
 
 function RPCBaseServiceClientFactory(TService, transforms=[]) {
   const requestTransforms = {};

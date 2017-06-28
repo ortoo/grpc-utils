@@ -22,6 +22,16 @@ message values {
     string value = 1;
     bool isNull = 2;
   }
+
+  message FirstNestedMessageValue {
+    test.FirstNestedMessage value = 1;
+    bool isNull = 2;
+  }
+
+  message SecondNestedMessageValue {
+    google.protobuf.Timestamp value = 1;
+    bool isNull = 2;
+  }
 }
 
 message arrays {

@@ -5,6 +5,7 @@ package test;
 import "google/protobuf/timestamp.proto";
 import "wrappers.proto";
 import "ortoo.proto";
+// import "common.proto";
 
 service TestService {
   rpc Hello(HelloRequest) returns (HelloResponse);
@@ -32,6 +33,25 @@ message HelloResponse {
   ortoo.resource.Group.wrappers.arrays.Timestamp undefinedwrap = 14;
   ortoo.resource.Group.wrappers.arrays.TestWrappedEnumArray enumArray = 15;
   ortoo.resource.Group.wrappers.values.string_StringMap wrappedMap = 16;
+
+  oneof testOneOf {
+    ortoo.resource.Group.wrappers.values.Timestamp oneofTimestamp = 17;
+    ortoo.resource.Group.wrappers.values.string_StringMap oneofMap = 18;
+    ortoo.resource.Group.wrappers.values.FirstNestedMessageValue oneofNestedMessage = 19;
+  }
+
+  oneof secondOneOf {
+    string secondOneOfString = 20;
+    int32 secondOneOfInt = 21;
+  }
+}
+
+message FirstNestedMessage {
+  ortoo.resource.Group.wrappers.values.SecondNestedMessageValue second = 1;
+}
+
+message SecondNestedMessage {
+  ortoo.resource.Group.wrappers.values.Timestamp timestamp = 1;
 }
 
 enum TestEnum {
