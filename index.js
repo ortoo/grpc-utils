@@ -3,7 +3,7 @@ const path = require('path');
 const ObjectId = require('bson-objectid');
 const isUndefined = require('lodash.isundefined');
 const isString = require('lodash.isstring');
-const ProtoBuf = require('protobufjs');
+const ProtoBuf = require('@ortoo/protobufjs');
 
 const client = require('./client');
 const impl = require('./impl');

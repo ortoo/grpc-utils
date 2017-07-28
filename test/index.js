@@ -6,7 +6,7 @@ const expect = require('chai').expect;
 
 const grpc = require('grpc');
 const grpcErrors = require('grpc-errors');
-const ProtoBuf = require('protobufjs');
+const ProtoBuf = require('@ortoo/protobufjs');
 const ObjectId = require('bson-objectid');
 
 const grpcUtils = require('../');
