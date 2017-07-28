@@ -15,7 +15,7 @@
     "lodash.isstring": "^4.0.1",
     "lodash.isundefined": "^3.0.1",
     "lodash.lowerfirst": "^4.3.1",
-    "protobufjs": "ortoo/protobuf.js#noobjcheck",
+    "protobufjs": "github:ortoo/protobuf.js#noobjcheck",
     "through2": "^2.0.1"
   },
   "devDependencies": {
