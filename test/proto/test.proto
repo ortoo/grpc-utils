@@ -3,6 +3,7 @@ syntax = "proto3";
 package test;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 import "wrappers.proto";
 import "ortoo.proto";
 // import "common.proto";
@@ -44,6 +45,10 @@ message HelloResponse {
     string secondOneOfString = 20;
     int32 secondOneOfInt = 21;
   }
+
+  google.protobuf.StringValue setGoogleStringValue = 22;
+  google.protobuf.StringValue unsetGoogleStringValue = 23;
+  google.protobuf.StringValue defaultGoogleStringValue = 24;
 }
 
 message FirstNestedMessage {

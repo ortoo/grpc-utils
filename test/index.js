@@ -63,7 +63,10 @@ describe('grpc-utils', function () {
           enumArray,
           wrappedMap,
           oneofMap,
-          oneofTimestamp
+          oneofTimestamp,
+          setGoogleStringValue,
+          unsetGoogleStringValue,
+          defaultGoogleStringValue
         } = res;
         expect(message).to.equal('hello james');
         expect(time).to.be.a.Date;
@@ -91,6 +94,9 @@ describe('grpc-utils', function () {
         expect(oneofMap).to.deep.equal({
           mapping: 'is great!'
         });
+        expect(setGoogleStringValue).to.equal('some string');
+        expect(defaultGoogleStringValue).to.equal('');
+        expect(unsetGoogleStringValue).to.be.null;
       });
     });
   });
@@ -160,7 +166,10 @@ const testImpl = {
         mapping: 'is great!'
       },
 
-      secondOneOfString: 'hi there'
+      secondOneOfString: 'hi there',
+
+      setGoogleStringValue: 'some string',
+      defaultGoogleStringValue: ''
     };
   },
 
