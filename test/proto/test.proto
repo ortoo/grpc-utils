@@ -49,6 +49,9 @@ message HelloResponse {
   google.protobuf.StringValue setGoogleStringValue = 22;
   google.protobuf.StringValue unsetGoogleStringValue = 23;
   google.protobuf.StringValue defaultGoogleStringValue = 24;
+  map<string, string> emptyMap = 25;
+
+  string underscore_field = 26;
 }
 
 message FirstNestedMessage {

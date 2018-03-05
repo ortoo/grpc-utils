@@ -3,6 +3,7 @@ const lowerFirst = require('lodash.lowerfirst');
 const through2 = require('through2');
 const duplexer2 = require('duplexer2');
 const grpc = require('grpc');
+const backoff = require('backoff');
 
 var opentracing;
 var tracer;
@@ -19,7 +20,15 @@ try {
 
 module.exports = RPCBaseServiceClientFactory;
 
-function RPCBaseServiceClientFactory(TService, transforms=[]) {
+function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
+  const defaultOpts = {
+    retryOnCodes: [14],
+    retryInitialDelay: 100,
+    retryMaxDelay: 10000
+  };
+
+  opts = Object.assign({}, defaultOpts, opts);
+
   const requestTransforms = {};
   const responseTransforms = {};
 
@@ -191,19 +200,46 @@ function RPCBaseServiceClientFactory(TService, transforms=[]) {
 
         var span = createTracingSpan({tracingContext, methodName, metadata});
 
-        return promisifiedClient.call(this._grpcClient, data, metadata, ...args).then(function (result) {
-          getResponseTransforms(methodName).forEach(function(transform) {
-            if (transform) {
-              result = transform(result);
-            }
+        return new Promise((resolve, reject) => {
+          const fibonacciBackoff = backoff.fibonacci({
+            randomisationFactor: 0.1,
+            initialDelay: opts.retryInitialDelay,
+            maxDelay: opts.retryMaxDelay
           });
 
-          if (span) {
-            span.finish();
-          }
+          const run = () => {
+            promisifiedClient.call(this._grpcClient, data, metadata, ...args).then(function (result) {
+              getResponseTransforms(methodName).forEach(function(transform) {
+                if (transform) {
+                  result = transform(result);
+                }
+              });
 
-          return result;
+              if (span) {
+                span.finish();
+              }
+
+              resolve(result);
+            }).catch(err => {
+              if (err.code && opts.retryOnCodes.includes(err.code)) {
+                fibonacciBackoff.backoff(err);
+              } else {
+                reject(err);
+              }
+            });
+          };
+
+          fibonacciBackoff.on('ready', function() {
+            run();
+          });
+
+          fibonacciBackoff.on('fail', err => {
+            reject(err);
+          });
+
+          run();
         });
+
       };
     }
   }

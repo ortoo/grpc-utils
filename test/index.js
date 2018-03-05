@@ -66,7 +66,9 @@ describe('grpc-utils', function () {
           oneofTimestamp,
           setGoogleStringValue,
           unsetGoogleStringValue,
-          defaultGoogleStringValue
+          defaultGoogleStringValue,
+          emptyMap,
+          underscoreField
         } = res;
         expect(message).to.equal('hello james');
         expect(time).to.be.a.Date;
@@ -97,17 +99,19 @@ describe('grpc-utils', function () {
         expect(setGoogleStringValue).to.equal('some string');
         expect(defaultGoogleStringValue).to.equal('');
         expect(unsetGoogleStringValue).to.be.null;
+        expect(emptyMap).to.be.an('object').that.is.empty;
+        expect(underscoreField).to.equal('hello');
       });
     });
   });
 
-  // describe('retries', function () {
-  //   it('should retry on unavailable', function() {
-  //     return client.unavailable({name: 'james'}).then(function ({message}) {
-  //       expect(message).to.equal('hello james');
-  //     });
-  //   });
-  // });
+  describe('retries', function () {
+    it('should retry on unavailable', function() {
+      return client.unavailable({name: 'james'}).then(function ({message}) {
+        expect(message).to.equal('hello james');
+      });
+    });
+  });
 });
 
 function initTest() {
@@ -169,7 +173,9 @@ const testImpl = {
       secondOneOfString: 'hi there',
 
       setGoogleStringValue: 'some string',
-      defaultGoogleStringValue: ''
+      defaultGoogleStringValue: '',
+      emptyMap: {},
+      underscoreField: 'hello'
     };
   },
 
