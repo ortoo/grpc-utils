@@ -22,6 +22,7 @@ module.exports = RPCBaseServiceClientFactory;
 
 function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
   const defaultOpts = {
+    retryFailAfter: 10,
     retryOnCodes: [14],
     retryInitialDelay: 100,
     retryMaxDelay: 10000
@@ -228,6 +229,8 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
               }
             });
           };
+
+          fibonacciBackoff.failAfter(opts.retryFailAfter);
 
           fibonacciBackoff.on('ready', function() {
             run();
