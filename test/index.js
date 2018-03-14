@@ -136,7 +136,7 @@ function initTest() {
   server.start();
 
   var clientCreds = grpc.credentials.createInsecure();
-  var Client = grpcUtils.createClient(testService);
+  var Client = grpcUtils.createClient(testService, [], {retryOnCodes: [14]});
 
   var client = new Client('localhost:50001', clientCreds);
 

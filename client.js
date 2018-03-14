@@ -23,7 +23,7 @@ module.exports = RPCBaseServiceClientFactory;
 function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
   const defaultOpts = {
     retryFailAfter: 10,
-    retryOnCodes: [14],
+    retryOnCodes: [],
     retryInitialDelay: 100,
     retryMaxDelay: 10000
   };
