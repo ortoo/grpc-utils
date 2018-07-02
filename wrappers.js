@@ -60,7 +60,7 @@ wrappers['.ortoo.ObjectId'] = {
     }
 
     var strRep = val.toString ? val.toString() : String(val);
-    return {value: new Buffer(strRep, 'hex')};
+    return {value: Buffer.from(strRep, 'hex')};
   },
 
   toObject: function (msg) {

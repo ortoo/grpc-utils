@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const crypto = require('crypto');
 
 const Promise = require('bluebird');
 const duplexer2 = require('duplexer2');
@@ -165,6 +166,16 @@ function RPCServiceImplementation(service, impl, transforms=[]) {
           }
         });
 
+        // Add in data to the context
+        var context = Object.assign({}, data.context || {});
+
+        // Maybe set a requestId if we don't have one
+        if (!context.requestId) {
+          context.requestId = generateRequestId();
+        }
+
+        data.context = context;
+
         try {
           impl[methodName](origOutStream, data, call);
         } catch (err) {
@@ -219,6 +230,11 @@ function RPCServiceImplementation(service, impl, transforms=[]) {
           });
         }
 
+        // Maybe set a requestId if we don't have one
+        if (!context.requestId) {
+          context.requestId = generateRequestId();
+        }
+
         data.context = context;
 
         Promise.try(impl[methodName].bind(undefined, data, call)).then(function (result) {
@@ -264,4 +280,8 @@ function createTransformStream(transformer) {
   return through2.obj(function(obj, enc, callback) {
     callback(null, transformer(obj));
   });
+}
+
+function generateRequestId() {
+  return crypto.randomBytes(7).toString('base64');
 }
