@@ -7,6 +7,10 @@ message ObjectId {
 }
 
 message BSONObject {
+  bytes value = 1;
+}
+
+message HybridObject {
   string json = 1;
-  bytes value = 2;
+  bytes bson = 2;
 }

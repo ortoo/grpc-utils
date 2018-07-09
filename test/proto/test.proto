@@ -52,6 +52,7 @@ message HelloResponse {
   map<string, string> emptyMap = 25;
 
   string underscore_field = 26;
+  ortoo.HybridObject hybrid = 27;
 }
 
 message FirstNestedMessage {

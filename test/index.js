@@ -53,6 +53,7 @@ describe('grpc-utils', function () {
           stringmap,
           undef,
           bson,
+          hybrid,
           testenum,
           unsetarr,
           unsetint,
@@ -83,6 +84,11 @@ describe('grpc-utils', function () {
         expect(bson.date).to.be.a('Date');
         expect(bson.date.toISOString()).to.equal('2017-01-01T00:00:00.000Z');
         expect(bson.objId).to.be.an.instanceof(ObjectId);
+        expect(hybrid).to.have.keys(['some', 'date', 'objId']);
+        expect(hybrid.some).to.deep.equal({field: 'val2'});
+        expect(hybrid.date).to.be.a('Date');
+        expect(hybrid.date.toISOString()).to.equal('2017-01-01T00:00:00.000Z');
+        expect(hybrid.objId).to.be.an.instanceof(ObjectId);
         expect(testenum).to.equal('two');
         expect(unsetint).to.equal(0);
         expect(unsettime).to.be.null;
@@ -161,6 +167,7 @@ const testImpl = {
       },
       undef: 'field',
       bson: {some: {field: 'val'}, date: new Date('2017-01-01'), objId: new ObjectId()},
+      hybrid: {some: {field: 'val2'}, date: new Date('2017-01-01'), objId: new ObjectId()},
       testenum: 'two',
       nullwrap: null,
       enumArray: ['one', 'two', 'zero', 1],

@@ -44,7 +44,6 @@ wrappers['.ortoo.BSONObject'] = {
     }
 
     return {
-      json: JSON.stringify(obj),
       value: bson.serialize(obj)
     };
   },
@@ -54,9 +53,35 @@ wrappers['.ortoo.BSONObject'] = {
       return obj;
     }
 
-    if (obj.value) {
+    try {
+      return bson.deserialize(obj.value);
+    } catch (err) {
+      // ignore
+    }
+  }
+}
+
+wrappers['.ortoo.HybridObject'] = {
+  fromObject: function (obj) {
+
+    if (typeof obj === 'undefined') {
+      return;
+    }
+
+    return {
+      json: JSON.stringify(obj),
+      bson: bson.serialize(obj)
+    };
+  },
+
+  toObject: function (obj) {
+    if (!obj) {
+      return obj;
+    }
+
+    if (obj.bson) {
       try {
-        return bson.deserialize(obj.value);
+        return bson.deserialize(obj.bson);
       } catch (err) {
         // ignore
       }
