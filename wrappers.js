@@ -39,12 +39,8 @@ wrappers['.google.protobuf.Timestamp'] = {
 wrappers['.ortoo.BSONObject'] = {
   fromObject: function (obj) {
 
-    if (typeof obj === 'undefined') {
-      return;
-    }
-
     return {
-      value: bson.serialize(obj)
+      value: objToBson(obj)
     };
   },
 
@@ -52,14 +48,33 @@ wrappers['.ortoo.BSONObject'] = {
     if (!obj) {
       return obj;
     }
-
     try {
-      return bson.deserialize(obj.value);
+      return objFromBson(obj.value);
     } catch (err) {
       // ignore
     }
   }
-}
+};
+
+wrappers['.ortoo.JSONObject'] = {
+  fromObject: function (obj) {
+
+    return {
+      value: JSON.stringify(obj)
+    };
+  },
+
+  toObject: function (obj) {
+    if (!obj) {
+      return obj;
+    }
+    try {
+      return JSON.parse(obj.value);
+    } catch (err) {
+      // ignore
+    }
+  }
+};
 
 wrappers['.ortoo.HybridObject'] = {
   fromObject: function (obj) {
@@ -70,7 +85,7 @@ wrappers['.ortoo.HybridObject'] = {
 
     return {
       json: JSON.stringify(obj),
-      bson: bson.serialize(obj)
+      bson: objToBson(obj)
     };
   },
 
@@ -81,7 +96,7 @@ wrappers['.ortoo.HybridObject'] = {
 
     if (obj.bson) {
       try {
-        return bson.deserialize(obj.bson);
+        return objFromBson(obj.bson);
       } catch (err) {
         // ignore
       }
@@ -197,4 +212,14 @@ function performUnwrap(resolvedType, outVal, opts) {
   }
 
   return resolvedType ? resolvedType.toObject(outVal, opts) : outVal;
+}
+
+function objToBson(obj) {
+  // The root bson object must be an object, so we wrap once here...
+  return bson.serialize({bson: obj});
+}
+
+function objFromBson(buf) {
+  // Unwrap the inner bson wrapper (see above)
+  return (bson.deserialize(buf).bson);
 }
