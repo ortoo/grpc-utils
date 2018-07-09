@@ -10,6 +10,10 @@ message BSONObject {
   bytes value = 1;
 }
 
+message JSONObject {
+  string value = 1;
+}
+
 message HybridObject {
   string json = 1;
   bytes bson = 2;

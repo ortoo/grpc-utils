@@ -53,6 +53,7 @@ message HelloResponse {
 
   string underscore_field = 26;
   ortoo.HybridObject hybrid = 27;
+  ortoo.JSONObject json = 28;
 }
 
 message FirstNestedMessage {
