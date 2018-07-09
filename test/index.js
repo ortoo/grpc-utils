@@ -7,7 +7,7 @@ const expect = require('chai').expect;
 const grpc = require('grpc');
 const grpcErrors = require('grpc-errors');
 const ProtoBuf = require('@ortoo/protobufjs');
-const ObjectId = require('bson-objectid');
+const ObjectId = require('bson').ObjectId;
 
 const grpcUtils = require('../');
 
@@ -52,7 +52,7 @@ describe('grpc-utils', function () {
           objid,
           stringmap,
           undef,
-          json,
+          bson,
           testenum,
           unsetarr,
           unsetint,
@@ -78,7 +78,11 @@ describe('grpc-utils', function () {
         expect(objid).to.be.an.instanceof(ObjectId);
         expect(stringmap.nowIs.getTime()).to.equal(now.getTime());
         expect(undef).to.be.undefined;
-        expect(json).to.deep.equal({some: {field: 'val'}});
+        expect(bson).to.have.keys(['some', 'date', 'objId']);
+        expect(bson.some).to.deep.equal({field: 'val'});
+        expect(bson.date).to.be.a('Date');
+        expect(bson.date.toISOString()).to.equal('2017-01-01T00:00:00.000Z');
+        expect(bson.objId).to.be.an.instanceof(ObjectId);
         expect(testenum).to.equal('two');
         expect(unsetint).to.equal(0);
         expect(unsettime).to.be.null;
@@ -156,7 +160,7 @@ const testImpl = {
         nowIs: now
       },
       undef: 'field',
-      json: {some: {field: 'val'}},
+      bson: {some: {field: 'val'}, date: new Date('2017-01-01'), objId: new ObjectId()},
       testenum: 'two',
       nullwrap: null,
       enumArray: ['one', 'two', 'zero', 1],

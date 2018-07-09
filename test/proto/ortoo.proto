@@ -6,6 +6,7 @@ message ObjectId {
   bytes value = 1;
 }
 
-message JSONObject {
-  string representation = 1;
+message BSONObject {
+  string json = 1;
+  bytes value = 2;
 }

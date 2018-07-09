@@ -24,7 +24,7 @@ message HelloResponse {
   ortoo.resource.Group.wrappers.values.Timestamp testwrap2 = 4;
   ortoo.ObjectId objid = 5;
   map<string, google.protobuf.Timestamp> stringmap = 6;
-  ortoo.JSONObject json = 7;
+  ortoo.BSONObject bson = 7;
   TestEnum testenum = 8;
   repeated string unsetarr = 9;
   int32 unsetint = 10;

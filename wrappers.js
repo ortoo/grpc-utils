@@ -1,7 +1,10 @@
-const ObjectId = require('bson-objectid');
 const isUndefined = require('lodash.isundefined');
 const isString = require('lodash.isstring');
 const ProtoBuf = require('@ortoo/protobufjs');
+const BSON = require('bson');
+
+const ObjectId = BSON.ObjectId;
+const bson = new BSON();
 
 const wrappers = {};
 
@@ -33,10 +36,16 @@ wrappers['.google.protobuf.Timestamp'] = {
   }
 };
 
-wrappers['.ortoo.JSONObject'] = {
+wrappers['.ortoo.BSONObject'] = {
   fromObject: function (obj) {
+
+    if (typeof obj === 'undefined') {
+      return;
+    }
+
     return {
-      representation: JSON.stringify(obj)
+      json: JSON.stringify(obj),
+      value: bson.serialize(obj)
     };
   },
 
@@ -45,8 +54,16 @@ wrappers['.ortoo.JSONObject'] = {
       return obj;
     }
 
+    if (obj.value) {
+      try {
+        return bson.deserialize(obj.value);
+      } catch (err) {
+        // ignore
+      }
+    }
+
     try {
-      return JSON.parse(obj.representation);
+      return JSON.parse(obj.json);
     } catch (err) {
       // ignore
     }
