@@ -35,8 +35,8 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
 
   const Client = grpc.loadObject(TService);
 
-  function RPCBaseServiceClient(addr, creds) {
-    this._grpcClient = new Client(addr, creds);
+  function RPCBaseServiceClient(addr, creds, clientOpts) {
+    this._grpcClient = new Client(addr, creds, clientOpts);
   }
 
   RPCBaseServiceClient.prototype = {};
