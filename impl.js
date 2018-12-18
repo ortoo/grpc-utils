@@ -1,23 +1,9 @@
 const EventEmitter = require('events');
 const crypto = require('crypto');
 
-const Promise = require('bluebird');
 const duplexer2 = require('duplexer2');
 const lowerFirst = require('lodash.lowerfirst');
 const through2 = require('through2');
-
-var opentracing;
-var tracer;
-try {
-  opentracing = require('opentracing');
-  tracer = opentracing.globalTracer();
-} catch (err) {
-  if (err.code !== 'MODULE_NOT_FOUND') {
-    throw err;
-  }
-  opentracing = null;
-  tracer = null;
-}
 
 module.exports = RPCServiceImplementation;
 
@@ -125,7 +111,13 @@ function RPCServiceImplementation(service, impl, transforms=[]) {
           }
         });
 
-        var prom = Promise.try(impl[methodName].bind(impl, inStream, call));
+        const prom = new Promise((resolve, reject) => {
+          try {
+            resolve(impl[methodName](inStream, call));
+          } catch (err) {
+            reject(err);
+          }
+        });
 
         prom.then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
@@ -190,25 +182,6 @@ function RPCServiceImplementation(service, impl, transforms=[]) {
     } else {
       // No streams
       wrappedImpl[methodName] = function (call, callback) {
-        var span;
-        if (tracer) {
-          // Can we get a span from the metadata
-          let md = call.metadata.getMap();
-          let parentSpanContext = tracer.extract(opentracing.FORMAT_HTTP_HEADERS, md);
-
-          if (parentSpanContext) {
-            span = tracer.startSpan(methodName, {childOf: parentSpanContext});
-          } else {
-            span = tracer.startSpan(methodName);
-          }
-
-          span.setTag('component', 'grpc');
-          span.setTag('span.kind', 'server');
-          span.setTag('grpc.method_name', methodName);
-          // span.setTag('grpc.call_attributes', );
-          // span.setTag('grpc.headers');
-        }
-
         var data = Object.assign({}, call.request);
 
         getRequestTransforms(methodName).forEach(function(transform) {
@@ -220,16 +193,6 @@ function RPCServiceImplementation(service, impl, transforms=[]) {
         // Add in data to the context
         var context = Object.assign({}, data.context || {});
 
-        if (span) {
-          // Non-enumarable so that we don't pick it up, say with JSON.stringify
-          Object.defineProperty(context, 'opentracing', {
-            value: {
-              spanContext: span.context()
-            },
-            enumerable: false
-          });
-        }
-
         // Maybe set a requestId if we don't have one
         if (!context.requestId) {
           context.requestId = generateRequestId();
@@ -237,28 +200,24 @@ function RPCServiceImplementation(service, impl, transforms=[]) {
 
         data.context = context;
 
-        Promise.try(impl[methodName].bind(undefined, data, call)).then(function (result) {
+        const prom = new Promise((resolve, reject) => {
+          try {
+            resolve(impl[methodName](data, call));
+          } catch (err) {
+            reject(err);
+          }
+        });
+
+        prom.then(function (result) {
           getResponseTransforms(methodName).forEach(function(transform) {
             if (transform) {
               result = transform(result);
             }
           });
 
-          if (span) {
-            span.finish();
-          }
           callback(null, result);
         }).catch(function (err) {
           wrappedImpl.emit('callError', err, call, {service: service, methodName});
-
-          if (span) {
-            span.log({
-              event: 'error',
-              'error.object': err
-            });
-            span.setTag('error', true);
-            span.finish();
-          }
           callback(err);
         });
       };
