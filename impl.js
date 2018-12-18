@@ -129,7 +129,12 @@ function RPCServiceImplementation(service, impl, transforms=[]) {
           callback(null, result);
         }).catch(function (err) {
           wrappedImpl.emit('callError', err, call, {service: service, methodName});
-          callback(err);
+
+          try {
+            callback(err);
+          } catch (sendErr) {
+            console.error('Send error: ', sendErr);
+          }
         });
       };
     } else if (child.responseStream) {
@@ -218,7 +223,12 @@ function RPCServiceImplementation(service, impl, transforms=[]) {
           callback(null, result);
         }).catch(function (err) {
           wrappedImpl.emit('callError', err, call, {service: service, methodName});
-          callback(err);
+
+          try {
+            callback(err);
+          } catch (sendErr) {
+            console.error('Send error: ', sendErr);
+          }
         });
       };
     }
