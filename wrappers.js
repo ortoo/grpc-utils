@@ -4,7 +4,6 @@ const ProtoBuf = require('@ortoo/protobufjs');
 const BSON = require('bson');
 
 const ObjectId = BSON.ObjectId;
-const bson = new BSON();
 
 const wrappers = {};
 
@@ -216,10 +215,10 @@ function performUnwrap(resolvedType, outVal, opts) {
 
 function objToBson(obj) {
   // The root bson object must be an object, so we wrap once here...
-  return bson.serialize({bson: obj});
+  return BSON.serialize({bson: obj});
 }
 
 function objFromBson(buf) {
   // Unwrap the inner bson wrapper (see above)
-  return (bson.deserialize(buf).bson);
+  return (BSON.deserialize(buf).bson);
 }
