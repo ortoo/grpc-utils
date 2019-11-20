@@ -6,12 +6,13 @@ const ProtoBuf = require('@ortoo/protobufjs');
 const client = require('./client');
 const impl = require('./impl');
 const wrappers = require('./wrappers');
+const loadObject = require('./loadObject');
 
 exports.createClient = client;
 exports.createImpl = impl;
 exports.applyCustomWrappers = applyCustomWrappers;
 exports.applyProtoRoot = applyProtoRoot;
-
+exports.loadObject = loadObject;
 
 function applyCustomWrappers(ns) {
   for (let fullName of Object.keys(wrappers)) {
@@ -21,7 +22,7 @@ function applyCustomWrappers(ns) {
 
     for (let orig of origArr) {
       let origSetup = orig.setup;
-      orig.setup = function (...args) {
+      orig.setup = function(...args) {
         origSetup.call(this, args);
         let originalThis = Object.create(this);
         originalThis.fromObject = this.fromObject;
@@ -46,7 +47,15 @@ function getAppliableTypes(wrapperName, root) {
   if (parent && pathSpl.length > 1) {
     // Want all children of the parent
     for (let child of parent.nestedArray) {
-      out.push(...getAppliableTypes([...pathSpl].splice(1).join('.*').replace(/^\./, ''), child));
+      out.push(
+        ...getAppliableTypes(
+          [...pathSpl]
+            .splice(1)
+            .join('.*')
+            .replace(/^\./, ''),
+          child
+        )
+      );
     }
   } else if (parent) {
     out.push(parent);
@@ -61,9 +70,7 @@ function applyProtoRoot(filename, root) {
   }
   filename.root = path.resolve(filename.root) + '/';
   root.resolvePath = function(originPath, importPath, alreadyNormalized) {
-    return ProtoBuf.util.path.resolve(filename.root,
-                                      importPath,
-                                      alreadyNormalized);
+    return ProtoBuf.util.path.resolve(filename.root, importPath, alreadyNormalized);
   };
   return filename.file;
 }

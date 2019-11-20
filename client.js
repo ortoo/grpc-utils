@@ -3,12 +3,14 @@ const util = require('util');
 const lowerFirst = require('lodash.lowerfirst');
 const through2 = require('through2');
 const duplexer2 = require('duplexer2');
-const grpc = require('grpc');
+const grpc = require('@grpc/grpc-js');
 const backoff = require('backoff');
+
+const loadObject = require('./loadObject');
 
 module.exports = RPCBaseServiceClientFactory;
 
-function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
+function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
   const defaultOpts = {
     retryFailAfter: 10,
     retryOnCodes: [],
@@ -21,7 +23,7 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
   const requestTransforms = {};
   const responseTransforms = {};
 
-  const Client = grpc.loadObject(TService);
+  const Client = loadObject(TService);
 
   function RPCBaseServiceClient(addr, creds, clientOpts) {
     this._grpcClient = new Client(addr, creds, clientOpts);
@@ -34,27 +36,26 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
   for (let child of TService.methodsArray) {
     let methodName = lowerFirst(child.name);
 
-
     requestTransforms[methodName] = requestTransforms[methodName] || [];
     responseTransforms[methodName] = responseTransforms[methodName] || [];
 
     child.resolve();
 
     // requestTransform1 -> requestTransform2 -> RPC client -> responseTransform2 -> responseTransform1
-    for (let {request, response} of transforms) {
+    for (let { request, response } of transforms) {
       requestTransforms[methodName].push(request(child.resolvedRequestType));
       responseTransforms[methodName].unshift(response(child.resolvedResponseType));
     }
 
     if (child.requestStream && child.responseStream) {
-      RPCBaseServiceClient.prototype[methodName] = function (...args) {
+      RPCBaseServiceClient.prototype[methodName] = function(...args) {
         var call = this._grpcClient[methodName](...args);
         var inStream = through2.obj(); // Pass through stream
         var outStream = through2.obj();
         var origInStream = inStream;
         var origOutStream = outStream;
 
-        getRequestTransforms(methodName).forEach(function (transform) {
+        getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
             var transformStream = createTransformStream(transform);
             // Pass the errors through 2
@@ -66,7 +67,7 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
           }
         });
 
-        getResponseTransforms(methodName).forEach(function (transform) {
+        getResponseTransforms(methodName).forEach(function(transform) {
           if (transform) {
             var transformStream = createTransformStream(transform);
             outStream.on('error', function(err) {
@@ -91,11 +92,11 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
         return duplexer2(origInStream, outStream);
       };
     } else if (child.requestStream) {
-      RPCBaseServiceClient.prototype[methodName] = function (...args) {
+      RPCBaseServiceClient.prototype[methodName] = function(...args) {
         var inStream = through2.obj();
         var origInStream = inStream;
 
-        getRequestTransforms(methodName).forEach(function (transform) {
+        getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
             var transformStream = createTransformStream(transform);
             // Pass the errors through 2
@@ -107,11 +108,11 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
           }
         });
 
-        const runAsPromise = util.promisify((callback) => {
+        const runAsPromise = util.promisify(callback => {
           var call = this._grpcClient[methodName](...args, callback);
           inStream.pipe(call);
 
-          inStream.on('error', function (err) {
+          inStream.on('error', function(err) {
             call.emit('error', err);
           });
         });
@@ -127,14 +128,14 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
         });
 
         // Make instream thenable
-        ['then', 'catch', 'finally'].forEach(function (field) {
+        ['then', 'catch', 'finally'].forEach(function(field) {
           origInStream[field] = resultProm[field].bind(resultProm);
         });
 
         return origInStream;
       };
     } else if (child.responseStream) {
-      RPCBaseServiceClient.prototype[methodName] = function (data, metadata, ...args) {
+      RPCBaseServiceClient.prototype[methodName] = function(data, metadata, ...args) {
         metadata = metadata ? metadata.clone() : new grpc.Metadata();
 
         getRequestTransforms(methodName).forEach(function(transform) {
@@ -152,7 +153,7 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
           outStream.emit('error', err);
         });
 
-        getResponseTransforms(methodName).forEach(function (transform) {
+        getResponseTransforms(methodName).forEach(function(transform) {
           if (transform) {
             var transformStream = createTransformStream(transform);
             outStream.on('error', function(err) {
@@ -167,7 +168,7 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
     } else {
       // No streams
       let promisifiedClient = util.promisify(Client.prototype[methodName]);
-      RPCBaseServiceClient.prototype[methodName] = function (data, metadata, ...args) {
+      RPCBaseServiceClient.prototype[methodName] = function(data, metadata, ...args) {
         metadata = metadata ? metadata.clone() : new grpc.Metadata();
 
         getRequestTransforms(methodName).forEach(function(transform) {
@@ -184,21 +185,24 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
           });
 
           const run = () => {
-            promisifiedClient.call(this._grpcClient, data, metadata, ...args).then(function (result) {
-              getResponseTransforms(methodName).forEach(function(transform) {
-                if (transform) {
-                  result = transform(result);
+            promisifiedClient
+              .call(this._grpcClient, data, metadata, ...args)
+              .then(function(result) {
+                getResponseTransforms(methodName).forEach(function(transform) {
+                  if (transform) {
+                    result = transform(result);
+                  }
+                });
+
+                resolve(result);
+              })
+              .catch(err => {
+                if (err.code && opts.retryOnCodes.includes(err.code)) {
+                  fibonacciBackoff.backoff(err);
+                } else {
+                  reject(err);
                 }
               });
-
-              resolve(result);
-            }).catch(err => {
-              if (err.code && opts.retryOnCodes.includes(err.code)) {
-                fibonacciBackoff.backoff(err);
-              } else {
-                reject(err);
-              }
-            });
           };
 
           fibonacciBackoff.failAfter(opts.retryFailAfter);
@@ -213,7 +217,6 @@ function RPCBaseServiceClientFactory(TService, transforms=[], opts={}) {
 
           run();
         });
-
       };
     }
   }

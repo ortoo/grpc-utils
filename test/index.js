@@ -4,7 +4,7 @@ const expect = require('chai').expect;
 // const opentracing = require('opentracing');
 // const {MockTracer} = require('opentracing/lib/mock_tracer');
 
-const grpc = require('grpc');
+const grpc = require('@grpc/grpc-js');
 const grpcErrors = require('grpc-errors');
 const ProtoBuf = require('@ortoo/protobufjs');
 const ObjectId = require('bson').ObjectId;
@@ -16,14 +16,14 @@ const now = new Date();
 // const mockTracer = new MockTracer();
 // opentracing.initGlobalTracer(mockTracer);
 
-describe('grpc-utils', function () {
+describe('grpc-utils', function() {
   var server;
   var client;
-  before(function () {
-    ({server, client} = initTest());
+  before(function() {
+    ({ server, client } = initTest());
   });
 
-  after(function () {
+  after(function() {
     // console.log('\nSpans:');
     // const report = mockTracer.report();
     // for (let i = 0; i < report.spans.length; i++) {
@@ -41,9 +41,9 @@ describe('grpc-utils', function () {
     server.forceShutdown();
   });
 
-  describe('basic functionality', function () {
-    it('should call hello', function () {
-      return client.hello({name: 'james'}).then(function (res) {
+  describe('basic functionality', function() {
+    it('should call hello', function() {
+      return client.hello({ name: 'james' }).then(function(res) {
         var {
           message,
           time,
@@ -80,14 +80,18 @@ describe('grpc-utils', function () {
         expect(objid).to.be.an.instanceof(ObjectId);
         expect(stringmap.nowIs.getTime()).to.equal(now.getTime());
         expect(undef).to.be.undefined;
-        expect(json).to.deep.equal({some: {field: 'val3'}, date: '2017-01-01T00:00:00.000Z', objId: '510928d5014ce75842000009'});
+        expect(json).to.deep.equal({
+          some: { field: 'val3' },
+          date: '2017-01-01T00:00:00.000Z',
+          objId: '510928d5014ce75842000009'
+        });
         expect(bson).to.have.keys(['some', 'date', 'objId']);
-        expect(bson.some).to.deep.equal({field: 'val'});
+        expect(bson.some).to.deep.equal({ field: 'val' });
         expect(bson.date).to.be.a('Date');
         expect(bson.date.toISOString()).to.equal('2017-01-01T00:00:00.000Z');
         expect(bson.objId).to.be.an.instanceof(ObjectId);
         expect(hybrid).to.have.keys(['some', 'date', 'objId']);
-        expect(hybrid.some).to.deep.equal({field: 'val2'});
+        expect(hybrid.some).to.deep.equal({ field: 'val2' });
         expect(hybrid.date).to.be.a('Date');
         expect(hybrid.date.toISOString()).to.equal('2017-01-01T00:00:00.000Z');
         expect(hybrid.objId).to.be.an.instanceof(ObjectId);
@@ -117,9 +121,9 @@ describe('grpc-utils', function () {
     });
   });
 
-  describe('retries', function () {
+  describe('retries', function() {
     it('should retry on unavailable', function() {
-      return client.unavailable({name: 'james'}).then(function ({message}) {
+      return client.unavailable({ name: 'james' }).then(function({ message }) {
         expect(message).to.equal('hello james');
       });
     });
@@ -136,27 +140,33 @@ function initTest() {
   grpcUtils.applyCustomWrappers(ns);
 
   var finalImpl = grpcUtils.createImpl(testService, testImpl);
-  finalImpl.on('callError', function (err) {
+  finalImpl.on('callError', function(err) {
     // server.emit('callError', ...args);
   });
 
-  var service = grpc.loadObject(testService);
+  var service = grpcUtils.loadObject(testService);
   server.addService(service.service, finalImpl);
 
   var cred = grpc.ServerCredentials.createInsecure();
-  server.bind('0.0.0.0:50001', cred);
-  server.start();
+  server.bindAsync('0.0.0.0:50001', cred, err => {
+    if (err) {
+      console.error(err);
+      return;
+    }
+
+    server.start();
+  });
 
   var clientCreds = grpc.credentials.createInsecure();
-  var Client = grpcUtils.createClient(testService, [], {retryOnCodes: [14]});
+  var Client = grpcUtils.createClient(testService, [], { retryOnCodes: [14] });
 
   var client = new Client('localhost:50001', clientCreds);
 
-  return {server, client};
+  return { server, client };
 }
 let unavailableCount = 0;
 const testImpl = {
-  hello: function({name}) {
+  hello: function({ name }) {
     return {
       message: 'hello ' + name,
       time: now,
@@ -168,9 +178,13 @@ const testImpl = {
         nowIs: now
       },
       undef: 'field',
-      bson: {some: {field: 'val'}, date: new Date('2017-01-01'), objId: new ObjectId()},
-      hybrid: {some: {field: 'val2'}, date: new Date('2017-01-01'), objId: new ObjectId()},
-      json: {some: {field: 'val3'}, date: new Date('2017-01-01'), objId: new ObjectId('510928d5014ce75842000009')},
+      bson: { some: { field: 'val' }, date: new Date('2017-01-01'), objId: new ObjectId() },
+      hybrid: { some: { field: 'val2' }, date: new Date('2017-01-01'), objId: new ObjectId() },
+      json: {
+        some: { field: 'val3' },
+        date: new Date('2017-01-01'),
+        objId: new ObjectId('510928d5014ce75842000009')
+      },
       testenum: 'two',
       nullwrap: null,
       enumArray: ['one', 'two', 'zero', 1],
@@ -193,13 +207,12 @@ const testImpl = {
     };
   },
 
-  unavailable: function({name}) {
+  unavailable: function({ name }) {
     unavailableCount++;
     if (unavailableCount % 2) {
       throw new grpcErrors.UnavailableError('unavailable');
     } else {
-      return {message: 'hello ' + name};
+      return { message: 'hello ' + name };
     }
-
   }
 };
