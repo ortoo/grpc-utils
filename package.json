@@ -4,7 +4,6 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "@grpc/grpc-js": "^0.6.15",
     "@ortoo/protobufjs": "^6.8.1",
     "backo": "^1.1.0",
     "backoff": "^2.5.0",
@@ -31,7 +30,7 @@
   },
   "optionalDependencies": {},
   "peerDependencies": {
-    "@grpc/grpc-js": "^0.6.12"
+    "@grpc/grpc-js": "^0.6.15"
   },
   "scripts": {
     "test": "mocha",
