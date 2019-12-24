@@ -1,8 +1,6 @@
 const path = require('path');
-const expect = require('chai').expect;
-
-// const opentracing = require('opentracing');
-// const {MockTracer} = require('opentracing/lib/mock_tracer');
+const chai = require('chai');
+const sinon = require('sinon');
 
 const grpc = require('@grpc/grpc-js');
 const grpcErrors = require('grpc-errors');
@@ -11,10 +9,11 @@ const ObjectId = require('bson').ObjectId;
 
 const grpcUtils = require('../');
 
-const now = new Date();
+chai.use(require('sinon-chai'));
 
-// const mockTracer = new MockTracer();
-// opentracing.initGlobalTracer(mockTracer);
+const { expect } = chai;
+
+const now = new Date();
 
 describe('grpc-utils', function() {
   var server;
@@ -24,20 +23,6 @@ describe('grpc-utils', function() {
   });
 
   after(function() {
-    // console.log('\nSpans:');
-    // const report = mockTracer.report();
-    // for (let i = 0; i < report.spans.length; i++) {
-    //   const span = report.spans[i];
-    //   const tags = span.tags();
-    //   const tagKeys = Object.keys(tags);
-    //
-    //   console.log(`    ${span.operationName()} - ${span.durationMs()}ms`);
-    //   for (let j = 0; j < tagKeys.length; j++) {
-    //     let key = tagKeys[j];
-    //     let value = tags[key];
-    //     console.log(`        tag '${key}':'${value}'`);
-    //   }
-    // }
     server.forceShutdown();
   });
 
@@ -119,6 +104,23 @@ describe('grpc-utils', function() {
         expect(underscoreField).to.equal('hello');
       });
     });
+
+    it('should set headers for request data', function() {
+      testImpl.hello.resetHistory();
+      return client
+        .hello({ name: 'james', context: { testProperty: 'silly', numberValue: 37 } })
+        .then(function() {
+          expect(testImpl.hello).to.have.been.calledWith(
+            sinon.match.any,
+            sinon.match(({ metadata }) => {
+              return (
+                metadata.get('x-or2-context-test-property')[0] === 'silly' &&
+                metadata.get('x-or2-context-number-value')[0] === '37'
+              );
+            })
+          );
+        });
+    });
   });
 
   describe('retries', function() {
@@ -166,7 +168,7 @@ function initTest() {
 }
 let unavailableCount = 0;
 const testImpl = {
-  hello: function({ name }) {
+  hello: sinon.spy(function({ name }) {
     return {
       message: 'hello ' + name,
       time: now,
@@ -205,7 +207,7 @@ const testImpl = {
       emptyMap: {},
       underscoreField: 'hello'
     };
-  },
+  }),
 
   unavailable: function({ name }) {
     unavailableCount++;

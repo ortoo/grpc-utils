@@ -13,8 +13,14 @@ service TestService {
   rpc Unavailable(HelloRequest) returns (HelloResponse); // Should always error
 }
 
+message Context {
+  string testProperty = 1;
+  int32 numberValue = 2;
+}
+
 message HelloRequest {
   string name = 1;
+  Context context = 2;
 }
 
 message HelloResponse {

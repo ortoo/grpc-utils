@@ -1,6 +1,7 @@
 const util = require('util');
 
 const lowerFirst = require('lodash.lowerfirst');
+const kebabCase = require('lodash.kebabcase');
 const through2 = require('through2');
 const duplexer2 = require('duplexer2');
 const grpc = require('@grpc/grpc-js');
@@ -144,6 +145,8 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
           }
         });
 
+        applyContextToMetadata(metadata, data);
+
         var call = this._grpcClient[methodName](data, ...args);
         var outStream = through2.obj();
 
@@ -176,6 +179,8 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
             data = transform(data);
           }
         });
+
+        applyContextToMetadata(metadata, data);
 
         return new Promise((resolve, reject) => {
           const fibonacciBackoff = backoff.fibonacci({
@@ -229,6 +234,13 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
 
   function getResponseTransforms(method) {
     return responseTransforms[method] || [];
+  }
+}
+
+function applyContextToMetadata(metadata, data) {
+  const context = (data && data.context) || {};
+  for (let key of Object.keys(context)) {
+    metadata.set(`x-or2-context-${kebabCase(key)}`, String(context[key]));
   }
 }
 
