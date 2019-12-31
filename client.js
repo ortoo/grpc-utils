@@ -239,6 +239,7 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
 
 function applyContextToMetadata(metadata, data) {
   const context = (data && data.context) || {};
+  context.applicationId = context.applicationId || 'governorhub';
   for (let key of Object.keys(context)) {
     metadata.set(`x-or2-context-${kebabCase(key)}`, String(context[key]));
   }

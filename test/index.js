@@ -104,9 +104,14 @@ describe('grpc-utils', function() {
         expect(underscoreField).to.equal('hello');
       });
     });
+  });
 
-    it('should set headers for request data', function() {
+  describe('context', function() {
+    beforeEach(function() {
       testImpl.hello.resetHistory();
+    });
+
+    it('should set headers for request data (default applicationId)', function() {
       return client
         .hello({ name: 'james', context: { testProperty: 'silly', numberValue: 37 } })
         .then(function() {
@@ -115,10 +120,71 @@ describe('grpc-utils', function() {
             sinon.match(({ metadata }) => {
               return (
                 metadata.get('x-or2-context-test-property')[0] === 'silly' &&
-                metadata.get('x-or2-context-number-value')[0] === '37'
+                metadata.get('x-or2-context-number-value')[0] === '37' &&
+                metadata.get('x-or2-context-application-id')[0] === 'governorhub'
               );
             })
           );
+        });
+    });
+
+    it('should set headers for request data (provided applicationId)', function() {
+      return client
+        .hello({
+          name: 'james',
+          context: { testProperty: 'silly', numberValue: 37, applicationId: 'testapp' }
+        })
+        .then(function() {
+          expect(testImpl.hello).to.have.been.calledWith(
+            sinon.match.any,
+            sinon.match(({ metadata }) => {
+              return (
+                metadata.get('x-or2-context-test-property')[0] === 'silly' &&
+                metadata.get('x-or2-context-number-value')[0] === '37' &&
+                metadata.get('x-or2-context-application-id')[0] === 'testapp'
+              );
+            })
+          );
+        });
+    });
+
+    it('should set defaults', function() {
+      return client
+        .hello({ name: 'james', context: { testProperty: 'silly', numberValue: 37 } })
+        .then(function() {
+          expect(testImpl.hello).to.have.been.calledWith({
+            context: {
+              requestId: sinon.match.string,
+              applicationId: 'governorhub',
+              testProperty: 'silly',
+              numberValue: 37
+            },
+            name: 'james'
+          });
+        });
+    });
+
+    it('should not overwrite values', function() {
+      return client
+        .hello({
+          name: 'james',
+          context: {
+            testProperty: 'silly',
+            numberValue: 37,
+            applicationId: 'testapp',
+            requestId: '1234'
+          }
+        })
+        .then(function() {
+          expect(testImpl.hello).to.have.been.calledWith({
+            context: {
+              requestId: '1234',
+              applicationId: 'testapp',
+              testProperty: 'silly',
+              numberValue: 37
+            },
+            name: 'james'
+          });
         });
     });
   });

@@ -16,6 +16,8 @@ service TestService {
 message Context {
   string testProperty = 1;
   int32 numberValue = 2;
+  string requestId = 3;
+  string applicationId = 4;
 }
 
 message HelloRequest {
