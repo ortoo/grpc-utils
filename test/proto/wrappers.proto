@@ -40,6 +40,11 @@ message arrays {
     bool isNull = 2;
   }
 
+  message String {
+    repeated string value = 1;
+    bool isNull = 2;
+  }
+
   message Timestamp {
     repeated google.protobuf.Timestamp value = 1;
     bool isNull = 2;

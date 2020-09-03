@@ -55,7 +55,9 @@ describe('grpc-utils', function() {
           unsetGoogleStringValue,
           defaultGoogleStringValue,
           emptyMap,
-          underscoreField
+          underscoreField,
+          stringArr,
+          messageArr
         } = res;
         expect(message).to.equal('hello james');
         expect(time).to.be.a.Date;
@@ -102,6 +104,8 @@ describe('grpc-utils', function() {
         expect(unsetGoogleStringValue).to.be.null;
         expect(emptyMap).to.be.an('object').that.is.empty;
         expect(underscoreField).to.equal('hello');
+        expect(stringArr).to.deep.equal(['some']);
+        expect(messageArr).to.deep.equal([new Date('2017-01-01')]);
       });
     });
   });
@@ -208,7 +212,7 @@ function initTest() {
   grpcUtils.applyCustomWrappers(ns);
 
   var finalImpl = grpcUtils.createImpl(testService, testImpl);
-  finalImpl.on('callError', function(err) {
+  finalImpl.on('callError', function() {
     // server.emit('callError', ...args);
   });
 
@@ -238,7 +242,7 @@ const testImpl = {
     return {
       message: 'hello ' + name,
       time: now,
-      testwrap: [1, 2],
+      testwrap: [1, null, 2],
       testwrap2: now,
       objid: new ObjectId(),
       stringobjid: '510928d5014ce75842000008',
@@ -271,7 +275,10 @@ const testImpl = {
       setGoogleStringValue: 'some string',
       defaultGoogleStringValue: '',
       emptyMap: {},
-      underscoreField: 'hello'
+      underscoreField: 'hello',
+
+      stringArr: ['some', null, null, undefined],
+      messageArr: [null, undefined, new Date('2017-01-01')]
     };
   }),
 

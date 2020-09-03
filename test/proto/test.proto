@@ -62,6 +62,9 @@ message HelloResponse {
   string underscore_field = 26;
   ortoo.HybridObject hybrid = 27;
   ortoo.JSONObject json = 28;
+
+  ortoo.resource.Group.wrappers.arrays.String stringArr = 29;
+  ortoo.resource.Group.wrappers.arrays.Timestamp messageArr = 30;
 }
 
 message FirstNestedMessage {

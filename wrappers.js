@@ -10,9 +10,9 @@ const wrappers = {};
 module.exports = wrappers;
 
 wrappers['.google.protobuf.Timestamp'] = {
-  fromObject: function (val) {
+  fromObject: function(val) {
     if (!val) {
-      return val;
+      return;
     }
 
     if (isString(val)) {
@@ -36,14 +36,13 @@ wrappers['.google.protobuf.Timestamp'] = {
 };
 
 wrappers['.ortoo.BSONObject'] = {
-  fromObject: function (obj) {
-
+  fromObject: function(obj) {
     return {
       value: objToBson(obj)
     };
   },
 
-  toObject: function (obj) {
+  toObject: function(obj) {
     if (!obj) {
       return obj;
     }
@@ -56,14 +55,13 @@ wrappers['.ortoo.BSONObject'] = {
 };
 
 wrappers['.ortoo.JSONObject'] = {
-  fromObject: function (obj) {
-
+  fromObject: function(obj) {
     return {
       value: JSON.stringify(obj)
     };
   },
 
-  toObject: function (obj) {
+  toObject: function(obj) {
     if (!obj) {
       return obj;
     }
@@ -76,8 +74,7 @@ wrappers['.ortoo.JSONObject'] = {
 };
 
 wrappers['.ortoo.HybridObject'] = {
-  fromObject: function (obj) {
-
+  fromObject: function(obj) {
     if (typeof obj === 'undefined') {
       return;
     }
@@ -88,7 +85,7 @@ wrappers['.ortoo.HybridObject'] = {
     };
   },
 
-  toObject: function (obj) {
+  toObject: function(obj) {
     if (!obj) {
       return obj;
     }
@@ -110,28 +107,30 @@ wrappers['.ortoo.HybridObject'] = {
 };
 
 wrappers['.ortoo.ObjectId'] = {
-  fromObject: function (val) {
+  fromObject: function(val) {
     if (!val) {
       return val;
     }
 
     var strRep = val.toString ? val.toString() : String(val);
-    return {value: Buffer.from(strRep, 'hex')};
+    return { value: Buffer.from(strRep, 'hex') };
   },
 
-  toObject: function (msg) {
+  toObject: function(msg) {
     if (!msg) {
       return msg;
     }
 
-    return (msg.value && msg.value.length) ? new ObjectId(msg.value) : undefined;
+    return msg.value && msg.value.length ? new ObjectId(msg.value) : undefined;
   }
 };
 
-wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wrappers.arrays.*'] = {
-  fromObject: function (val) {
+wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers[
+  '.ortoo.resource.*.wrappers.arrays.*'
+] = {
+  fromObject: function(val) {
     if (val === null) {
-      return {isNull: true};
+      return { isNull: true };
     } else if (!isUndefined(val)) {
       var valField = this.fields.value;
       let resolvedType = valField.resolvedType;
@@ -140,20 +139,23 @@ wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wr
       if (valField.map) {
         let outVal = {};
         var key;
-        for (var keys = Object.keys(val), ii = 0; ii < keys.length ; ++ii) {
+        for (var keys = Object.keys(val), ii = 0; ii < keys.length; ++ii) {
           key = keys[ii];
           outVal[key] = performWrap(resolvedType, val[key]);
         }
-        return {value: outVal};
+        return { value: outVal };
       } else if (valField.repeated) {
-        return {value: val.map(outVal => performWrap(resolvedType, outVal))};
+        // For safety let's filter out any null / undefined values
+        return {
+          value: val.filter(val => val != null).map(outVal => performWrap(resolvedType, outVal))
+        };
       } else {
-        return {value: performWrap(resolvedType, val)};
+        return { value: performWrap(resolvedType, val) };
       }
     }
   },
 
-  toObject: function (obj, opts) {
+  toObject: function(obj, opts) {
     if (obj && obj.isNull) {
       return null;
     } else if (obj) {
@@ -164,7 +166,7 @@ wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wr
       if (valField.map) {
         let outVal = {};
         var key;
-        for (var keys = Object.keys(val), ii = 0; ii < keys.length ; ++ii) {
+        for (var keys = Object.keys(val), ii = 0; ii < keys.length; ++ii) {
           key = keys[ii];
           outVal[key] = performUnwrap(resolvedType, val[key], opts);
         }
@@ -178,24 +180,25 @@ wrappers['.ortoo.resource.*.wrappers.values.*'] = wrappers['.ortoo.resource.*.wr
   }
 };
 
-['Double', 'Float', 'Int64', 'UInt64', 'Int32', 'UInt32', 'Bool', 'String', 'Bytes'].forEach(type => {
-  wrappers[`.google.protobuf.${type}Value`] = {
-    fromObject(val) {
-      if (isUndefined(val) || val === null) {
-        return null;
-      } else {
-        return {
-          value: val
-        };
+['Double', 'Float', 'Int64', 'UInt64', 'Int32', 'UInt32', 'Bool', 'String', 'Bytes'].forEach(
+  type => {
+    wrappers[`.google.protobuf.${type}Value`] = {
+      fromObject(val) {
+        if (isUndefined(val) || val === null) {
+          return null;
+        } else {
+          return {
+            value: val
+          };
+        }
+      },
+
+      toObject(obj) {
+        return obj && obj.value;
       }
-    },
-
-    toObject(obj) {
-      return obj && obj.value;
-    }
-  };
-});
-
+    };
+  }
+);
 
 function performWrap(resolvedType, outVal) {
   if (resolvedType instanceof ProtoBuf.Enum) {
@@ -215,10 +218,10 @@ function performUnwrap(resolvedType, outVal, opts) {
 
 function objToBson(obj) {
   // The root bson object must be an object, so we wrap once here...
-  return BSON.serialize({bson: obj});
+  return BSON.serialize({ bson: obj });
 }
 
 function objFromBson(buf) {
   // Unwrap the inner bson wrapper (see above)
-  return (BSON.deserialize(buf).bson);
+  return BSON.deserialize(buf).bson;
 }
