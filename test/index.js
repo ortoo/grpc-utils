@@ -200,6 +200,20 @@ describe('grpc-utils', function() {
       });
     });
   });
+
+  describe('error', function() {
+    it('should throw an error with the correct stack trace', function() {
+      return client.error({}).then(
+        () => {
+          throw new Error('should not get here');
+        },
+        err => {
+          expect(err.stack).to.include('caused when calling gRPC method .test.TestService.Error');
+          expect(err.stack).to.include('test/index.js');
+        }
+      );
+    });
+  });
 });
 
 function initTest() {
@@ -289,5 +303,9 @@ const testImpl = {
     } else {
       return { message: 'hello ' + name };
     }
+  },
+
+  error: function() {
+    throw new Error('This is a terrible error!');
   }
 };

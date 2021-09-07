@@ -48,6 +48,20 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
       responseTransforms[methodName].unshift(response(child.resolvedResponseType));
     }
 
+    const attachContextToError = (err, callingContext) => {
+      const stack = `${err.stack}\ncaused when calling gRPC method ${
+        child.fullName
+      }\n${callingContext.stack.replace(/^Error\n/, '')}`;
+
+      return Object.assign(err, { stack });
+    };
+
+    const getCallingContext = () => {
+      const callingContext = {};
+      Error.captureStackTrace(callingContext, RPCBaseServiceClient.prototype[methodName]);
+      return callingContext;
+    };
+
     if (child.requestStream && child.responseStream) {
       RPCBaseServiceClient.prototype[methodName] = function(...args) {
         var call = this._grpcClient[methodName](...args);
@@ -173,7 +187,7 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
       let promisifiedClient = util.promisify(Client.prototype[methodName]);
       RPCBaseServiceClient.prototype[methodName] = function(data, metadata, ...args) {
         metadata = metadata ? metadata.clone() : new grpc.Metadata();
-
+        const callingContext = getCallingContext();
         getRequestTransforms(methodName).forEach(function(transform) {
           if (transform) {
             data = transform(data);
@@ -188,6 +202,10 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
             initialDelay: opts.retryInitialDelay,
             maxDelay: opts.retryMaxDelay
           });
+
+          const handleErr = err => {
+            reject(attachContextToError(err, callingContext));
+          };
 
           const run = () => {
             promisifiedClient
@@ -205,7 +223,7 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
                 if (err.code && opts.retryOnCodes.includes(err.code)) {
                   fibonacciBackoff.backoff(err);
                 } else {
-                  reject(err);
+                  handleErr(err);
                 }
               });
           };
@@ -217,7 +235,7 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
           });
 
           fibonacciBackoff.on('fail', err => {
-            reject(err);
+            handleErr(err);
           });
 
           run();

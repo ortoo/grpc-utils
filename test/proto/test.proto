@@ -11,6 +11,7 @@ import "ortoo.proto";
 service TestService {
   rpc Hello(HelloRequest) returns (HelloResponse);
   rpc Unavailable(HelloRequest) returns (HelloResponse); // Should always error
+  rpc Error(HelloRequest) returns (HelloResponse);
 }
 
 message Context {
