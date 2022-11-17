@@ -24,7 +24,7 @@
     "eslint": "^2.11.1",
     "eslint-plugin-mocha": "^4.8.0",
     "grpc-errors": "^1.1.0",
-    "mocha": "^7.1.2",
+    "mocha": "^10.1.0",
     "prettier": "^1.19.1",
     "sinon": "^8.0.1",
     "sinon-chai": "^3.4.0",
