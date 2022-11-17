@@ -2,6 +2,7 @@ const util = require('util');
 
 const lowerFirst = require('lodash.lowerfirst');
 const kebabCase = require('lodash.kebabcase');
+const camelCase = require('lodash.camelcase');
 const through2 = require('through2');
 const duplexer2 = require('duplexer2');
 const grpc = require('@grpc/grpc-js');
@@ -35,7 +36,7 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
 
   /* eslint-disable no-loop-func */
   for (let child of TService.methodsArray) {
-    let methodName = lowerFirst(child.name);
+    let methodName = camelCase(child.name);
 
     requestTransforms[methodName] = requestTransforms[methodName] || [];
     responseTransforms[methodName] = responseTransforms[methodName] || [];
