@@ -60,7 +60,7 @@ describe('grpc-utils', function() {
           messageArr
         } = res;
         expect(message).to.equal('hello james');
-        expect(time).to.be.a.Date;
+        expect(time).to.be.an.instanceOf(Date);
         expect(time.getTime()).to.equal(now.getTime());
         expect(testwrap).to.have.all.members([1, 2]);
         expect(testwrap2.getTime()).to.equal(now.getTime());
