@@ -168,7 +168,7 @@ describe('grpc-utils', function() {
         });
     });
 
-    it('should not overwrite values', function() {
+    it('should not overwrite values for legacy Context', function() {
       return client
         .hello({
           name: 'james',
@@ -191,6 +191,66 @@ describe('grpc-utils', function() {
           });
         });
     });
+
+    it('should not overwrite values for CommonContext', function() {
+      return client
+        .helloCommonContext({
+          name: 'connorchris',
+          context: {
+            ortoo: {
+              godMode: false,
+              applicationId: 'testapp',
+              clientId: 'clientId123'
+            },
+            requestId: 'requestId1234',
+            userId: 'userId37'
+          }
+        })
+        .then(function() {
+          expect(testImpl.helloCommonContext).to.have.been.calledWith({
+            context: {
+              requestId: 'requestId1234',
+              userId: 'userId37',
+              contextType: 'ortoo',
+              ortoo: {
+                godMode: false,
+                applicationId: 'testapp',
+                clientId: 'clientId123'
+              },
+              thekey: null
+            },
+            name: 'connorchris'
+          });
+        });
+    });
+
+    it('should check The Key with CommonContext', function() {
+      return client
+        .helloCommonContext({
+          name: 'james',
+          context: {
+            thekey: {
+              clientId: 'clientId123'
+            },
+            requestId: 'requestId1234',
+            userId: 'userId37'
+          }
+        })
+        .then(function() {
+          expect(testImpl.helloCommonContext).to.have.been.calledWith({
+            context: {
+              requestId: 'requestId1234',
+              userId: 'userId37',
+              contextType: 'thekey',
+              thekey: {
+                clientId: 'clientId123'
+              },
+              ortoo: null
+            },
+            name: 'james'
+          });
+        });
+    });
   });
 
   describe('retries', function() {
@@ -208,7 +268,7 @@ describe('grpc-utils', function() {
           throw new Error('should not get here');
         },
         err => {
-          expect(err.stack).to.include('caused when calling gRPC method .test.TestService.Error');
+          expect(err.stack).to.include('caused when calling gRPC method .ortoo.TestService.Error');
           expect(err.stack).to.include('test/index.js');
         }
       );
@@ -221,7 +281,7 @@ function initTest() {
 
   var root = new ProtoBuf.Root();
   var ns = root.loadSync(grpcUtils.applyProtoRoot(path.join(__dirname, 'proto/test.proto'), root));
-  const testService = ns.lookupService('test.TestService');
+  const testService = ns.lookupService('ortoo.TestService');
 
   grpcUtils.applyCustomWrappers(ns);
 
@@ -253,6 +313,50 @@ function initTest() {
 let unavailableCount = 0;
 const testImpl = {
   hello: sinon.spy(function({ name }) {
+    return {
+      message: 'hello ' + name,
+      time: now,
+      testwrap: [1, null, 2],
+      testwrap2: now,
+      objid: new ObjectId(),
+      stringobjid: '510928d5014ce75842000008',
+      stringmap: {
+        nowIs: now
+      },
+      undef: 'field',
+      bson: { some: { field: 'val' }, date: new Date('2017-01-01'), objId: new ObjectId() },
+      hybrid: { some: { field: 'val2' }, date: new Date('2017-01-01'), objId: new ObjectId() },
+      json: {
+        some: { field: 'val3' },
+        date: new Date('2017-01-01'),
+        objId: new ObjectId('510928d5014ce75842000009')
+      },
+      testenum: 'two',
+      nullwrap: null,
+      enumArray: ['one', 'two', 'zero', 1],
+      wrappedMap: {
+        some: 'value',
+        inA: 'map',
+        otherwise: null
+      },
+
+      oneofMap: {
+        mapping: 'is great!'
+      },
+
+      secondOneOfString: 'hi there',
+
+      setGoogleStringValue: 'some string',
+      defaultGoogleStringValue: '',
+      emptyMap: {},
+      underscoreField: 'hello',
+
+      stringArr: ['some', null, null, undefined],
+      messageArr: [null, undefined, new Date('2017-01-01')]
+    };
+  }),
+
+  helloCommonContext: sinon.spy(function({ name }) {
     return {
       message: 'hello ' + name,
       time: now,

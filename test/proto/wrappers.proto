@@ -24,7 +24,7 @@ message values {
   }
 
   message FirstNestedMessageValue {
-    test.FirstNestedMessage value = 1;
+    ortoo.FirstNestedMessage value = 1;
     bool isNull = 2;
   }
 

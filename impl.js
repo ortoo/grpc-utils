@@ -163,7 +163,7 @@ function RPCServiceImplementation(service, impl, transforms = []) {
           }
         });
 
-        applyContextDefaults(data);
+        applyContextDefaults(data, child.resolvedRequestType.fields.context.resolvedType.fullName);
 
         try {
           impl[methodName](origOutStream, data, call);
@@ -187,7 +187,7 @@ function RPCServiceImplementation(service, impl, transforms = []) {
           }
         });
 
-        applyContextDefaults(data);
+        applyContextDefaults(data, child.resolvedRequestType.fields.context.resolvedType.fullName);
 
         const prom = new Promise((resolve, reject) => {
           try {
@@ -241,7 +241,7 @@ function generateRequestId() {
   return crypto.randomBytes(7).toString('base64');
 }
 
-function applyContextDefaults(data) {
+function applyContextDefaults(data, contextType) {
   // Add in data to the context
   var context = Object.assign({}, data.context || {});
 
@@ -250,9 +250,15 @@ function applyContextDefaults(data) {
     context.requestId = generateRequestId();
   }
 
-  // Default to the "governorhub" application
-  if (!context.applicationId) {
-    context.applicationId = 'governorhub';
+  if (contextType === '.ortoo.Context') {
+    // Default to the "governorhub" application
+    if (!context.applicationId) {
+      context.applicationId = 'governorhub';
+    }
+  } else if (contextType === '.ortoo.CommonContext' && context.ortoo) {
+    if (!context.ortoo.applicationId) {
+      context.ortoo.applicationId = 'governorhub';
+    }
   }
 
   data.context = context;
