@@ -356,9 +356,10 @@ const testImpl = {
     };
   }),
 
-  helloCommonContext: sinon.spy(function({ name }) {
+  // eslint-disable-next-line no-empty-pattern
+  helloCommonContext: sinon.spy(function({}) {
     return {
-      message: 'hello ' + name,
+      message: 'hello ',
       time: now,
       testwrap: [1, null, 2],
       testwrap2: now,

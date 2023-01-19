@@ -242,6 +242,10 @@ function generateRequestId() {
 }
 
 function applyContextDefaults(data, contextType) {
+  if (!contextType) {
+    return;
+  }
+
   // Add in data to the context
   var context = Object.assign({}, data.context || {});
 
