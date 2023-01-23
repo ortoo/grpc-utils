@@ -113,6 +113,7 @@ describe('grpc-utils', function() {
   describe('context', function() {
     beforeEach(function() {
       testImpl.hello.resetHistory();
+      testImpl.helloCommonContext.resetHistory();
     });
 
     it('should set headers for request data (default applicationId)', function() {
@@ -152,6 +153,55 @@ describe('grpc-utils', function() {
         });
     });
 
+    it('should set headers for request data (commonContext)', function() {
+      return client
+        .helloCommonContext({
+          name: 'james',
+          context: {
+            userId: 'test1',
+            requestId: 'test2',
+            ortoo: { testProperty: 'silly', numberValue: 37, applicationId: 'testapp' }
+          }
+        })
+        .then(function() {
+          expect(testImpl.helloCommonContext).to.have.been.calledWith(
+            sinon.match.any,
+            sinon.match(({ metadata }) => {
+              return (
+                metadata.get('x-or2-context-test-property')[0] === 'silly' &&
+                metadata.get('x-or2-context-number-value')[0] === '37' &&
+                metadata.get('x-or2-context-application-id')[0] === 'testapp' &&
+                metadata.get('x-or2-context-request-id')[0] === 'test2' &&
+                metadata.get('x-or2-context-user-id')[0] === 'test1'
+              );
+            })
+          );
+        });
+    });
+
+    it('should not set headers for thekey request data (commonContext)', function() {
+      return client
+        .helloCommonContext({
+          name: 'james',
+          context: {
+            userId: 'test1',
+            requestId: 'test2',
+            thekey: {}
+          }
+        })
+        .then(function() {
+          expect(testImpl.helloCommonContext).to.have.been.calledWith(
+            sinon.match.any,
+            sinon.match(({ metadata }) => {
+              return (
+                metadata.get('x-or2-context-request-id')[0] === undefined &&
+                metadata.get('x-or2-context-user-id')[0] === undefined
+              );
+            })
+          );
+        });
+    });
+
     it('should set defaults', function() {
       return client
         .hello({ name: 'james', context: { testProperty: 'silly', numberValue: 37 } })
@@ -168,7 +218,7 @@ describe('grpc-utils', function() {
         });
     });
 
-    it('should not overwrite values', function() {
+    it('should not overwrite values for legacy Context', function() {
       return client
         .hello({
           name: 'james',
@@ -191,6 +241,66 @@ describe('grpc-utils', function() {
           });
         });
     });
+
+    it('should not overwrite values for CommonContext', function() {
+      return client
+        .helloCommonContext({
+          name: 'connorchris',
+          context: {
+            ortoo: {
+              godMode: false,
+              applicationId: 'testapp',
+              clientId: 'clientId123'
+            },
+            requestId: 'requestId1234',
+            userId: 'userId37'
+          }
+        })
+        .then(function() {
+          expect(testImpl.helloCommonContext).to.have.been.calledWith({
+            context: {
+              requestId: 'requestId1234',
+              userId: 'userId37',
+              contextType: 'ortoo',
+              ortoo: {
+                godMode: false,
+                applicationId: 'testapp',
+                clientId: 'clientId123'
+              },
+              thekey: null
+            },
+            name: 'connorchris'
+          });
+        });
+    });
+
+    it('should check The Key with CommonContext', function() {
+      return client
+        .helloCommonContext({
+          name: 'james',
+          context: {
+            thekey: {
+              clientId: 'clientId123'
+            },
+            requestId: 'requestId1234',
+            userId: 'userId37'
+          }
+        })
+        .then(function() {
+          expect(testImpl.helloCommonContext).to.have.been.calledWith({
+            context: {
+              requestId: 'requestId1234',
+              userId: 'userId37',
+              contextType: 'thekey',
+              thekey: {
+                clientId: 'clientId123'
+              },
+              ortoo: null
+            },
+            name: 'james'
+          });
+        });
+    });
   });
 
   describe('retries', function() {
@@ -208,7 +318,7 @@ describe('grpc-utils', function() {
           throw new Error('should not get here');
         },
         err => {
-          expect(err.stack).to.include('caused when calling gRPC method .test.TestService.Error');
+          expect(err.stack).to.include('caused when calling gRPC method .ortoo.TestService.Error');
           expect(err.stack).to.include('test/index.js');
         }
       );
@@ -221,7 +331,7 @@ function initTest() {
 
   var root = new ProtoBuf.Root();
   var ns = root.loadSync(grpcUtils.applyProtoRoot(path.join(__dirname, 'proto/test.proto'), root));
-  const testService = ns.lookupService('test.TestService');
+  const testService = ns.lookupService('ortoo.TestService');
 
   grpcUtils.applyCustomWrappers(ns);
 
@@ -294,6 +404,11 @@ const testImpl = {
       stringArr: ['some', null, null, undefined],
       messageArr: [null, undefined, new Date('2017-01-01')]
     };
+  }),
+
+  // eslint-disable-next-line no-empty-pattern
+  helloCommonContext: sinon.spy(function({}) {
+    return {};
   }),
 
   unavailable: function({ name }) {

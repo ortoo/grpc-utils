@@ -1,6 +1,5 @@
 const util = require('util');
 
-const lowerFirst = require('lodash.lowerfirst');
 const kebabCase = require('lodash.kebabcase');
 const camelCase = require('lodash.camelcase');
 const through2 = require('through2');
@@ -160,7 +159,7 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
           }
         });
 
-        applyContextToMetadata(metadata, data);
+        applyContextToMetadata(metadata, data, child.resolvedRequestType);
 
         var call = this._grpcClient[methodName](data, ...args);
         var outStream = through2.obj();
@@ -195,7 +194,7 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
           }
         });
 
-        applyContextToMetadata(metadata, data);
+        applyContextToMetadata(metadata, data, child.resolvedRequestType);
 
         return new Promise((resolve, reject) => {
           const fibonacciBackoff = backoff.fibonacci({
@@ -256,11 +255,30 @@ function RPCBaseServiceClientFactory(TService, transforms = [], opts = {}) {
   }
 }
 
-function applyContextToMetadata(metadata, data) {
-  const context = (data && data.context) || {};
-  context.applicationId = context.applicationId || 'governorhub';
-  for (let key of Object.keys(context)) {
-    metadata.set(`x-or2-context-${kebabCase(key)}`, String(context[key]));
+function applyContextToMetadata(metadata, data, requestType) {
+  const contextType = getRequestContextType(requestType);
+
+  if (!contextType) {
+    return;
+  }
+
+  if (
+    contextType === '.ortoo.Context' ||
+    (contextType === '.ortoo.CommonContext' && data && data.context && data.context.ortoo)
+  ) {
+    let or2Context;
+    if (contextType === '.ortoo.Context') {
+      or2Context = data.context || {};
+    } else {
+      const commonContext = data.context;
+      or2Context = { userId: commonContext.userId, requestId: commonContext.requestId };
+      Object.assign(or2Context, commonContext.ortoo);
+    }
+
+    or2Context.applicationId = or2Context.applicationId || 'governorhub';
+    for (let key of Object.keys(or2Context)) {
+      metadata.set(`x-or2-context-${kebabCase(key)}`, String(or2Context[key]));
+    }
   }
 }
 
@@ -268,4 +286,22 @@ function createTransformStream(transformer) {
   return through2.obj(function(obj, enc, callback) {
     callback(null, transformer(obj));
   });
+}
+
+function getRequestContextType(requestType) {
+  const contextField = requestType.fields.context;
+  if (!contextField) {
+    return null;
+  }
+
+  if (!contextField.resolved) {
+    contextField.resolve();
+  }
+
+  const contextType = contextField.resolvedType;
+  if (!contextType) {
+    return null;
+  }
+
+  return contextType.fullName;
 }

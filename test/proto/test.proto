@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package test;
+package ortoo;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
@@ -10,6 +10,7 @@ import "ortoo.proto";
 
 service TestService {
   rpc Hello(HelloRequest) returns (HelloResponse);
+  rpc HelloCommonContext(HelloCommonContextRequest) returns (HelloResponse);
   rpc Unavailable(HelloRequest) returns (HelloResponse); // Should always error
   rpc Error(HelloRequest) returns (HelloResponse);
 }
@@ -21,9 +22,34 @@ message Context {
   string applicationId = 4;
 }
 
+message CommonContext {
+  string request_id = 1;
+  string user_id = 2;
+
+  oneof contextType {
+    Ortoo ortoo = 4;
+    TheKey thekey = 5;
+  }
+
+  message Ortoo {
+    bool god_mode = 1;
+    string application_id = 2;
+    string client_id = 3;
+  }
+
+  message TheKey {
+    string client_id = 1;
+  }
+}
+
 message HelloRequest {
   string name = 1;
   Context context = 2;
+}
+
+message HelloCommonContextRequest {
+  string name = 1;
+  CommonContext context = 2;
 }
 
 message HelloResponse {

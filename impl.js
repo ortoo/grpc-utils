@@ -3,6 +3,7 @@ const crypto = require('crypto');
 
 const duplexer2 = require('duplexer2');
 const lowerFirst = require('lodash.lowerfirst');
+const cloneDeep = require('lodash.clonedeep');
 const through2 = require('through2');
 
 module.exports = RPCServiceImplementation;
@@ -163,7 +164,7 @@ function RPCServiceImplementation(service, impl, transforms = []) {
           }
         });
 
-        applyContextDefaults(data);
+        applyContextDefaults(data, child.resolvedRequestType);
 
         try {
           impl[methodName](origOutStream, data, call);
@@ -187,7 +188,7 @@ function RPCServiceImplementation(service, impl, transforms = []) {
           }
         });
 
-        applyContextDefaults(data);
+        applyContextDefaults(data, child.resolvedRequestType);
 
         const prom = new Promise((resolve, reject) => {
           try {
@@ -241,19 +242,45 @@ function generateRequestId() {
   return crypto.randomBytes(7).toString('base64');
 }
 
-function applyContextDefaults(data) {
+function applyContextDefaults(data, requestType) {
+  const contextType = getRequestContextType(requestType);
+
+  if (!contextType) {
+    return;
+  }
+
   // Add in data to the context
-  var context = Object.assign({}, data.context || {});
+  const context = data.context ? cloneDeep(data.context) : {};
 
   // Maybe set a requestId if we don't have one
   if (!context.requestId) {
     context.requestId = generateRequestId();
   }
 
-  // Default to the "governorhub" application
-  if (!context.applicationId) {
-    context.applicationId = 'governorhub';
+  if (contextType === '.ortoo.Context') {
+    // Default to the "governorhub" application
+    if (!context.applicationId) {
+      context.applicationId = 'governorhub';
+    }
+  } else if (contextType === '.ortoo.CommonContext' && context.ortoo) {
+    if (!context.ortoo.applicationId) {
+      context.ortoo.applicationId = 'governorhub';
+    }
   }
 
   data.context = context;
+}
+
+function getRequestContextType(requestType) {
+  const contextField = requestType.fields.context;
+  if (!contextField) {
+    return null;
+  }
+
+  const contextType = contextField.resolvedType;
+  if (!contextType) {
+    return null;
+  }
+
+  return contextType.fullName;
 }
