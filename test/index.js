@@ -113,6 +113,7 @@ describe('grpc-utils', function() {
   describe('context', function() {
     beforeEach(function() {
       testImpl.hello.resetHistory();
+      testImpl.helloCommonContext.resetHistory();
     });
 
     it('should set headers for request data (default applicationId)', function() {
@@ -146,6 +147,55 @@ describe('grpc-utils', function() {
                 metadata.get('x-or2-context-test-property')[0] === 'silly' &&
                 metadata.get('x-or2-context-number-value')[0] === '37' &&
                 metadata.get('x-or2-context-application-id')[0] === 'testapp'
+              );
+            })
+          );
+        });
+    });
+
+    it('should set headers for request data (commonContext)', function() {
+      return client
+        .helloCommonContext({
+          name: 'james',
+          context: {
+            userId: 'test1',
+            requestId: 'test2',
+            ortoo: { testProperty: 'silly', numberValue: 37, applicationId: 'testapp' }
+          }
+        })
+        .then(function() {
+          expect(testImpl.helloCommonContext).to.have.been.calledWith(
+            sinon.match.any,
+            sinon.match(({ metadata }) => {
+              return (
+                metadata.get('x-or2-context-test-property')[0] === 'silly' &&
+                metadata.get('x-or2-context-number-value')[0] === '37' &&
+                metadata.get('x-or2-context-application-id')[0] === 'testapp' &&
+                metadata.get('x-or2-context-request-id')[0] === 'test2' &&
+                metadata.get('x-or2-context-user-id')[0] === 'test1'
+              );
+            })
+          );
+        });
+    });
+
+    it('should not set headers for thekey request data (commonContext)', function() {
+      return client
+        .helloCommonContext({
+          name: 'james',
+          context: {
+            userId: 'test1',
+            requestId: 'test2',
+            thekey: {}
+          }
+        })
+        .then(function() {
+          expect(testImpl.helloCommonContext).to.have.been.calledWith(
+            sinon.match.any,
+            sinon.match(({ metadata }) => {
+              return (
+                metadata.get('x-or2-context-request-id')[0] === undefined &&
+                metadata.get('x-or2-context-user-id')[0] === undefined
               );
             })
           );
@@ -358,47 +408,7 @@ const testImpl = {
 
   // eslint-disable-next-line no-empty-pattern
   helloCommonContext: sinon.spy(function({}) {
-    return {
-      message: 'hello ',
-      time: now,
-      testwrap: [1, null, 2],
-      testwrap2: now,
-      objid: new ObjectId(),
-      stringobjid: '510928d5014ce75842000008',
-      stringmap: {
-        nowIs: now
-      },
-      undef: 'field',
-      bson: { some: { field: 'val' }, date: new Date('2017-01-01'), objId: new ObjectId() },
-      hybrid: { some: { field: 'val2' }, date: new Date('2017-01-01'), objId: new ObjectId() },
-      json: {
-        some: { field: 'val3' },
-        date: new Date('2017-01-01'),
-        objId: new ObjectId('510928d5014ce75842000009')
-      },
-      testenum: 'two',
-      nullwrap: null,
-      enumArray: ['one', 'two', 'zero', 1],
-      wrappedMap: {
-        some: 'value',
-        inA: 'map',
-        otherwise: null
-      },
-
-      oneofMap: {
-        mapping: 'is great!'
-      },
-
-      secondOneOfString: 'hi there',
-
-      setGoogleStringValue: 'some string',
-      defaultGoogleStringValue: '',
-      emptyMap: {},
-      underscoreField: 'hello',
-
-      stringArr: ['some', null, null, undefined],
-      messageArr: [null, undefined, new Date('2017-01-01')]
-    };
+    return {};
   }),
 
   unavailable: function({ name }) {
