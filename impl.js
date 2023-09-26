@@ -164,7 +164,7 @@ function RPCServiceImplementation(service, impl, transforms = []) {
           }
         });
 
-        applyContextDefaults(data, child.resolvedRequestType);
+        applyContextDefaults(data, call, child.resolvedRequestType);
 
         try {
           impl[methodName](origOutStream, data, call);
@@ -188,7 +188,7 @@ function RPCServiceImplementation(service, impl, transforms = []) {
           }
         });
 
-        applyContextDefaults(data, child.resolvedRequestType);
+        applyContextDefaults(data, call, child.resolvedRequestType);
 
         const prom = new Promise((resolve, reject) => {
           try {
@@ -242,7 +242,7 @@ function generateRequestId() {
   return crypto.randomBytes(7).toString('base64');
 }
 
-function applyContextDefaults(data, requestType) {
+function applyContextDefaults(data, call, requestType) {
   const contextType = getRequestContextType(requestType);
 
   if (!contextType) {
@@ -266,6 +266,16 @@ function applyContextDefaults(data, requestType) {
     if (!context.ortoo.applicationId) {
       context.ortoo.applicationId = 'governorhub';
     }
+  }
+
+  // Proxy through the cancelled property on the call
+  if (call) {
+    Object.defineProperty(context, 'cancelled', {
+      enumerable: false,
+      get: function() {
+        return call.cancelled;
+      }
+    });
   }
 
   data.context = context;
