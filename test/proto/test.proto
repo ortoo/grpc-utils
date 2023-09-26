@@ -13,6 +13,7 @@ service TestService {
   rpc HelloCommonContext(HelloCommonContextRequest) returns (HelloResponse);
   rpc Unavailable(HelloRequest) returns (HelloResponse); // Should always error
   rpc Error(HelloRequest) returns (HelloResponse);
+  rpc Cancel(HelloRequest) returns (HelloResponse); // 
 }
 
 message Context {

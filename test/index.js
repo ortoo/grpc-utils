@@ -324,6 +324,35 @@ describe('grpc-utils', function() {
       );
     });
   });
+
+  describe('cancelled on context', function() {
+    it('the context should have a working cancelled property', function(done) {
+      const cancelStub = testImpl.cancel;
+      let call;
+      const rawClient = client._grpcClient;
+
+      cancelStub.callsFake(function({ context }) {
+        return new Promise((_, reject) => {
+          if (context.cancelled) {
+            reject(new Error());
+            done(new Error('context should not be cancelled yet'));
+          }
+
+          call.cancel();
+
+          const intervalId = setInterval(() => {
+            if (context.cancelled) {
+              clearInterval(intervalId);
+              reject(new Error());
+              done();
+            }
+          }, 10);
+        });
+      });
+
+      call = rawClient.cancel({ name: 'james', context: {} }, () => {});
+    });
+  });
 });
 
 function initTest() {
@@ -422,5 +451,7 @@ const testImpl = {
 
   error: function() {
     throw new Error('This is a terrible error!');
-  }
+  },
+
+  cancel: sinon.stub()
 };
