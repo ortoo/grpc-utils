@@ -2,7 +2,7 @@ const EventEmitter = require('events');
 const crypto = require('crypto');
 
 const duplexer2 = require('duplexer2');
-const lowerFirst = require('lodash.lowerfirst');
+const camelCase = require('lodash.camelcase');
 const cloneDeep = require('lodash.clonedeep');
 const through2 = require('through2');
 
@@ -14,7 +14,7 @@ function RPCServiceImplementation(service, impl, transforms = []) {
 
   var wrappedImpl = new EventEmitter();
   for (let child of service.methodsArray) {
-    let methodName = lowerFirst(child.name);
+    let methodName = camelCase(child.name);
 
     // Is this implemented. If not then ignore
     if (!impl[methodName]) {
