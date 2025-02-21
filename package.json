@@ -1,6 +1,6 @@
 {
   "name": "@ortoo/grpc-utils",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "",
   "main": "index.js",
   "dependencies": {
@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@grpc/grpc-js": "^1.0.3",
-    "@ortoo/protobufjs": "^6.11.3",
+    "@ortoo/protobufjs": "6.11.4-ortoo.2",
     "chai": "^4.0.0",
     "eslint": "^8.31.0",
     "eslint-plugin-mocha": "^10.1.0",
